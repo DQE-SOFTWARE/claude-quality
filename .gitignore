@@ -1,0 +1,19 @@
+# Claude Code local project files
+.claude/
+
+# Legacy standalone skill format (superseded by skills/dqe-audit/SKILL.md)
+dqe-audit.md
+
+# Input/output data (may contain sensitive CSVs)
+input/
+output/
+
+# Python
+__pycache__/
+*.pyc
+*.pyo
+/tmp/
+
+# OS
+.DS_Store
+Thumbs.db

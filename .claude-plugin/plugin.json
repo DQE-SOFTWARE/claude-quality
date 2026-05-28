@@ -1,0 +1,23 @@
+{
+  "name": "dqe-quality",
+  "version": "1.0.0",
+  "description": "Data quality audit plugin for Claude Code. Analyses CSV files across 6 DQE dimensions (completeness, invalid dates, duplicates, anomalies, broken relationships, format inconsistencies) and generates standalone branded HTML reports.",
+  "author": {
+    "name": "DQE Software",
+    "url": "https://github.com/DQE-SOFTWARE"
+  },
+  "license": "MIT",
+  "homepage": "https://github.com/DQE-SOFTWARE/claude-quality",
+  "repository": "https://github.com/DQE-SOFTWARE/claude-quality",
+  "category": "data-quality",
+  "keywords": [
+    "dqe",
+    "data-quality",
+    "csv-audit",
+    "completeness",
+    "duplicates",
+    "anomalies",
+    "html-report",
+    "data-profiling"
+  ]
+}

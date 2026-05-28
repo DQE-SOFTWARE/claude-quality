@@ -1,0 +1,32 @@
+{
+  "$schema": "https://anthropic.com/claude-code/marketplace.schema.json",
+  "name": "dqe-software-dqe-quality",
+  "owner": {
+    "name": "DQE-SOFTWARE"
+  },
+  "metadata": {
+    "description": "Claude Code plugins for data quality — CSV audits, DQE dimension analysis, and HTML reporting. Built by DQE Software."
+  },
+  "plugins": [
+    {
+      "name": "dqe-quality",
+      "source": "./",
+      "description": "Data quality audit plugin for Claude Code. Analyses CSV files across 6 DQE dimensions (completeness, invalid dates, duplicates, anomalies, broken relationships, format inconsistencies) and generates standalone branded HTML reports.",
+      "author": {
+        "name": "DQE Software",
+        "url": "https://github.com/DQE-SOFTWARE"
+      },
+      "category": "data-quality",
+      "keywords": [
+        "dqe",
+        "data-quality",
+        "csv-audit",
+        "completeness",
+        "duplicates",
+        "anomalies",
+        "html-report",
+        "data-profiling"
+      ]
+    }
+  ]
+}
