@@ -108,6 +108,126 @@ def _infer_country_from_postal_codes(vals):
         return 'FR'  # canonical 5-digit validator (covers FR/DE/ES format)
     return None
 
+
+def _normalize_country(raw):
+    """Map any known country string to a canonical 2-letter key for table lookups."""
+    _MAP = {
+        'FR': 'FR', 'FRANCE': 'FR', 'FRA': 'FR',
+        'DE': 'DE', 'GERMANY': 'DE', 'DEUTSCHLAND': 'DE', 'ALLEMAGNE': 'DE', 'DEU': 'DE',
+        'ES': 'ES', 'SPAIN': 'ES', 'ESPAGNE': 'ES', 'ESPAÑA': 'ES', 'ESP': 'ES',
+        'US': 'US', 'USA': 'US', 'UNITED STATES': 'US',
+        'ÉTATS-UNIS': 'US', 'ETATS-UNIS': 'US',
+    }
+    return _MAP.get((raw or '').strip().upper())
+
+
+# Maps canonical country key → (zip_prefix_length, {prefix: tuple_of_city_name_variants})
+# All city names stored UPPERCASED. Word-boundary matching prevents partial hits.
+# Coverage is intentionally limited to major cities — use DQE RNVP for full worldwide validation.
+CITY_ZIP_TABLES = {
+    'FR': (2, {
+        '75': ('PARIS',),
+        '69': ('LYON',),
+        '13': ('MARSEILLE',),
+        '31': ('TOULOUSE',),
+        '33': ('BORDEAUX',),
+        '44': ('NANTES',),
+        '59': ('LILLE',),
+        '67': ('STRASBOURG',),
+        '06': ('NICE',),
+        '34': ('MONTPELLIER',),
+        '76': ('ROUEN',),
+        '35': ('RENNES',),
+        '38': ('GRENOBLE',),
+        '57': ('METZ',),
+        '21': ('DIJON',),
+        '51': ('REIMS',),
+        '49': ('ANGERS',),
+        '45': ('ORLEANS', 'ORLÉANS'),
+    }),
+    'DE': (2, {
+        '10': ('BERLIN',), '11': ('BERLIN',), '12': ('BERLIN',),
+        '13': ('BERLIN',), '14': ('BERLIN',),
+        '20': ('HAMBURG',), '21': ('HAMBURG',), '22': ('HAMBURG',),
+        '80': ('MÜNCHEN', 'MUNICH', 'MUENCHEN'),
+        '81': ('MÜNCHEN', 'MUNICH', 'MUENCHEN'),
+        '50': ('KÖLN', 'KOELN', 'COLOGNE'),
+        '51': ('KÖLN', 'KOELN', 'COLOGNE'),
+        '60': ('FRANKFURT',), '63': ('FRANKFURT',), '65': ('FRANKFURT',),
+        '70': ('STUTTGART',), '71': ('STUTTGART',),
+        '40': ('DÜSSELDORF', 'DUSSELDORF', 'DUESSELDORF'),
+        '44': ('DORTMUND',),
+        '04': ('LEIPZIG',),
+        '01': ('DRESDEN',),
+        '30': ('HANNOVER', 'HANOVER'),
+        '28': ('BREMEN',),
+        '90': ('NÜRNBERG', 'NUREMBERG', 'NUERNBERG'),
+        '68': ('MANNHEIM',),
+        '76': ('KARLSRUHE',),
+        '86': ('AUGSBURG',),
+    }),
+    'ES': (2, {
+        '28': ('MADRID',),
+        '08': ('BARCELONA',),
+        '41': ('SEVILLA', 'SEVILLE'),
+        '46': ('VALENCIA',),
+        '48': ('BILBAO',),
+        '29': ('MÁLAGA', 'MALAGA'),
+        '15': ('A CORUÑA', 'CORUÑA', 'CORUNA'),
+        '18': ('GRANADA',),
+        '03': ('ALICANTE',),
+        '14': ('CÓRDOBA', 'CORDOBA'),
+        '47': ('VALLADOLID',),
+        '50': ('ZARAGOZA',),
+        '30': ('MURCIA',),
+        '33': ('OVIEDO', 'GIJÓN', 'GIJON'),
+        '35': ('LAS PALMAS',),
+        '07': ('PALMA',),
+        '20': ('SAN SEBASTIÁN', 'SAN SEBASTIAN', 'DONOSTIA'),
+    }),
+    'US': (3, {
+        '100': ('NEW YORK',), '101': ('NEW YORK',), '102': ('NEW YORK',),
+        '103': ('NEW YORK',), '104': ('NEW YORK',),
+        '900': ('LOS ANGELES',), '901': ('LOS ANGELES',), '902': ('LOS ANGELES',),
+        '606': ('CHICAGO',), '607': ('CHICAGO',), '608': ('CHICAGO',),
+        '770': ('HOUSTON',), '771': ('HOUSTON',), '772': ('HOUSTON',),
+        '850': ('PHOENIX',), '851': ('PHOENIX',), '852': ('PHOENIX',), '853': ('PHOENIX',),
+        '191': ('PHILADELPHIA',), '192': ('PHILADELPHIA',),
+        '782': ('SAN ANTONIO',), '783': ('SAN ANTONIO',),
+        '921': ('SAN DIEGO',),   '922': ('SAN DIEGO',),
+        '752': ('DALLAS',),      '753': ('DALLAS',),      '754': ('DALLAS',),
+        '950': ('SAN JOSE',),    '951': ('SAN JOSE',),
+        '941': ('SAN FRANCISCO',),
+        '787': ('AUSTIN',),
+        '981': ('SEATTLE',),
+        '802': ('DENVER',),      '803': ('DENVER',),
+        '021': ('BOSTON',),      '022': ('BOSTON',),
+        '303': ('ATLANTA',),
+        '331': ('MIAMI',),       '332': ('MIAMI',),
+        '891': ('LAS VEGAS',),
+        '972': ('PORTLAND',),
+        '554': ('MINNEAPOLIS',),
+    }),
+}
+
+
+def _check_city_zip_mismatch(cp_val, city_val, prefix_len, prefix_map):
+    """True if a city name from a DIFFERENT ZIP prefix appears in city_val.
+    Uses word-boundary matching. Excludes names shared with the current prefix
+    (e.g. prefixes 80 and 81 both map to MÜNCHEN — not a mismatch)."""
+    prefix = cp_val[:prefix_len]
+    if prefix not in prefix_map:
+        return False
+    own_cities = set(prefix_map[prefix])
+    city_up = city_val.upper()
+    for other_prefix, city_names in prefix_map.items():
+        if other_prefix == prefix:
+            continue
+        for city in city_names:
+            if city not in own_cities and re.search(r'\b' + re.escape(city) + r'\b', city_up):
+                return True
+    return False
+
 # ─── ENCODING / DELIMITER ─────────────────────────────────────────────────────
 
 def detect_encoding(fp):
@@ -373,27 +493,34 @@ def analyze_broken_relationships(rows, headers, contexts_map):
                                    'pct': round(len(bad_list) / total * 100, 2),
                                    'detail': f'Inferred format ({inferred}): expected {desc}'})
 
-    # A2 — CP / VILLE mismatch (major cities)
-    DEPT_CITY = {
-        '75': 'PARIS', '69': 'LYON', '13': 'MARSEILLE',
-        '31': 'TOULOUSE', '33': 'BORDEAUX', '44': 'NANTES',
-        '59': 'LILLE', '67': 'STRASBOURG', '06': 'NICE',
-    }
+    # A2 — ZIP/city mismatch (major cities — FR/DE/ES/US; use DQE RNVP for full coverage)
     if cp_col and ville_col:
         mismatches = 0
-        for r in rows:
-            cp    = (r.get(cp_col, '') or '').strip()
-            ville = (r.get(ville_col, '') or '').strip().upper()
-            dept  = cp[:2] if len(cp) >= 2 else ''
-            if dept in DEPT_CITY and ville:
-                for other_dept, other_city in DEPT_CITY.items():
-                    if other_dept != dept and other_city in ville:
+        if pays_col:
+            for r in rows:
+                cp_v  = (r.get(cp_col,   '') or '').strip()
+                vl_v  = (r.get(ville_col, '') or '').strip()
+                canon = _normalize_country(r.get(pays_col, '') or '')
+                if cp_v and vl_v and canon and canon in CITY_ZIP_TABLES:
+                    plen, pmap = CITY_ZIP_TABLES[canon]
+                    if _check_city_zip_mismatch(cp_v, vl_v, plen, pmap):
                         mismatches += 1
-                        break
+        else:
+            inferred = _infer_country_from_postal_codes(
+                [(r.get(cp_col, '') or '').strip() for r in rows]
+            )
+            if inferred and inferred in CITY_ZIP_TABLES:
+                plen, pmap = CITY_ZIP_TABLES[inferred]
+                for r in rows:
+                    cp_v = (r.get(cp_col,   '') or '').strip()
+                    vl_v = (r.get(ville_col, '') or '').strip()
+                    if cp_v and vl_v and _check_city_zip_mismatch(cp_v, vl_v, plen, pmap):
+                        mismatches += 1
         if mismatches > 0:
             issues.append({'dimension': 'A', 'type': 'postal_code_city_mismatch',
                            'count': mismatches, 'pct': round(mismatches / total * 100, 2),
-                           'detail': 'Code postal et ville semblent appartenir à des régions différentes'})
+                           'detail': ('ZIP/city mismatch detected on major cities '
+                                      '(FR/DE/ES/US) — DQE RNVP for full worldwide coverage')})
 
     # B1 — Email field contains non-email content
     if email_col:

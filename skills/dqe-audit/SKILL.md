@@ -284,8 +284,55 @@ def analyze_anomalies(rows, headers, cmap):
         if issues: res[col]={'issues':issues,'total_values':len(non_empty)}
     return res
 
-DEPT_CITY={'75':'PARIS','69':'LYON','13':'MARSEILLE','31':'TOULOUSE','33':'BORDEAUX',
-           '44':'NANTES','59':'LILLE','67':'STRASBOURG','06':'NICE'}
+def _norm_cty(s):
+    _M={'FR':'FR','FRANCE':'FR','FRA':'FR','DE':'DE','GERMANY':'DE','DEUTSCHLAND':'DE',
+        'ALLEMAGNE':'DE','DEU':'DE','ES':'ES','SPAIN':'ES','ESPAGNE':'ES','ESPAÑA':'ES','ESP':'ES',
+        'US':'US','USA':'US','UNITED STATES':'US','ÉTATS-UNIS':'US','ETATS-UNIS':'US'}
+    return _M.get((s or '').strip().upper())
+
+CZT={
+    'FR':(2,{'75':('PARIS',),'69':('LYON',),'13':('MARSEILLE',),'31':('TOULOUSE',),
+             '33':('BORDEAUX',),'44':('NANTES',),'59':('LILLE',),'67':('STRASBOURG',),
+             '06':('NICE',),'34':('MONTPELLIER',),'76':('ROUEN',),'35':('RENNES',),
+             '38':('GRENOBLE',),'57':('METZ',),'21':('DIJON',),'51':('REIMS',),'49':('ANGERS',)}),
+    'DE':(2,{'10':('BERLIN',),'11':('BERLIN',),'12':('BERLIN',),'13':('BERLIN',),'14':('BERLIN',),
+             '20':('HAMBURG',),'21':('HAMBURG',),'22':('HAMBURG',),
+             '80':('MÜNCHEN','MUNICH','MUENCHEN'),'81':('MÜNCHEN','MUNICH','MUENCHEN'),
+             '50':('KÖLN','KOELN','COLOGNE'),'51':('KÖLN','KOELN','COLOGNE'),
+             '60':('FRANKFURT',),'63':('FRANKFURT',),'65':('FRANKFURT',),
+             '70':('STUTTGART',),'40':('DÜSSELDORF','DUSSELDORF','DUESSELDORF'),
+             '44':('DORTMUND',),'04':('LEIPZIG',),'01':('DRESDEN',),
+             '30':('HANNOVER','HANOVER'),'28':('BREMEN',),'90':('NÜRNBERG','NUREMBERG','NUERNBERG')}),
+    'ES':(2,{'28':('MADRID',),'08':('BARCELONA',),'41':('SEVILLA','SEVILLE'),
+             '46':('VALENCIA',),'48':('BILBAO',),'29':('MÁLAGA','MALAGA'),
+             '15':('A CORUÑA','CORUÑA','CORUNA'),'18':('GRANADA',),'03':('ALICANTE',),
+             '14':('CÓRDOBA','CORDOBA'),'47':('VALLADOLID',),'50':('ZARAGOZA',),
+             '30':('MURCIA',),'33':('OVIEDO','GIJÓN','GIJON'),'35':('LAS PALMAS',),
+             '07':('PALMA',),'20':('SAN SEBASTIÁN','SAN SEBASTIAN','DONOSTIA')}),
+    'US':(3,{'100':('NEW YORK',),'101':('NEW YORK',),'102':('NEW YORK',),'103':('NEW YORK',),'104':('NEW YORK',),
+             '900':('LOS ANGELES',),'901':('LOS ANGELES',),'902':('LOS ANGELES',),
+             '606':('CHICAGO',),'607':('CHICAGO',),'608':('CHICAGO',),
+             '770':('HOUSTON',),'771':('HOUSTON',),'772':('HOUSTON',),
+             '850':('PHOENIX',),'851':('PHOENIX',),'852':('PHOENIX',),'853':('PHOENIX',),
+             '191':('PHILADELPHIA',),'192':('PHILADELPHIA',),
+             '782':('SAN ANTONIO',),'783':('SAN ANTONIO',),
+             '921':('SAN DIEGO',),'922':('SAN DIEGO',),
+             '752':('DALLAS',),'753':('DALLAS',),'754':('DALLAS',),
+             '950':('SAN JOSE',),'951':('SAN JOSE',),'941':('SAN FRANCISCO',),
+             '787':('AUSTIN',),'981':('SEATTLE',),'802':('DENVER',),'803':('DENVER',),
+             '021':('BOSTON',),'022':('BOSTON',),'303':('ATLANTA',),
+             '331':('MIAMI',),'332':('MIAMI',),'891':('LAS VEGAS',),
+             '972':('PORTLAND',),'554':('MINNEAPOLIS',)}),
+}
+
+def _czm(cp,vl,plen,pmap):
+    px=cp[:plen]
+    if px not in pmap: return False
+    own=set(pmap[px]); vu=vl.upper()
+    for op,oc in pmap.items():
+        if op==px: continue
+        if any(c not in own and re.search(r'\b'+re.escape(c)+r'\b',vu) for c in oc): return True
+    return False
 
 def gcol(headers, cmap, *keys):
     for h in headers:
@@ -320,13 +367,23 @@ def analyze_relationships(rows, headers, cmap):
                                        'pct':round(len(bl)/total*100,2),'detail':f'Inferred ({inf}): expected {desc}'})
     if cp and vil:
         mm=0
-        for r in rows:
-            cp_=r.get(cp,'').strip(); vi=r.get(vil,'').strip().upper(); dept=cp_[:2] if len(cp_)>=2 else ''
-            if dept in DEPT_CITY and vi:
-                for od,oc in DEPT_CITY.items():
-                    if od!=dept and oc in vi: mm+=1; break
+        if pay:
+            for r in rows:
+                cv=(r.get(cp,'')or'').strip(); vv=(r.get(vil,'')or'').strip()
+                cn=_norm_cty(r.get(pay,'')or'')
+                if cv and vv and cn and cn in CZT:
+                    pl,pm=CZT[cn]
+                    if _czm(cv,vv,pl,pm): mm+=1
+        else:
+            inf=_infer_cp_country([(r.get(cp,'')or'').strip() for r in rows])
+            if inf and inf in CZT:
+                pl,pm=CZT[inf]
+                for r in rows:
+                    cv=(r.get(cp,'')or'').strip(); vv=(r.get(vil,'')or'').strip()
+                    if cv and vv and _czm(cv,vv,pl,pm): mm+=1
         if mm>0: issues.append({'dimension':'A','type':'postal_code_city_mismatch','count':mm,
-                                  'pct':round(mm/total*100,2),'detail':'CP et VILLE semblent de régions différentes'})
+                                  'pct':round(mm/total*100,2),
+                                  'detail':'ZIP/city mismatch on major cities (FR/DE/ES/US) — DQE RNVP for full coverage'})
     if em:
         bad=sum(1 for r in rows if (r.get(em,'')or'').strip() and classify(r.get(em,'')) not in('EMAIL','EMPTY'))
         if bad>0: issues.append({'dimension':'B','type':'invalid_email_field_content','count':bad,
@@ -707,7 +764,7 @@ CSS additionnel :
 
 **Section 5 — Recommandations** :
 Grille 2 colonnes de reco-cards (fond #1933AC). Règles de sélection des services :
-- Adresses invalides / CP incohérent → DQE Address (RNVP)
+- Adresses invalides / CP incohérent / `postal_code_city_mismatch` → DQE Address (RNVP) — préciser dans le texte de la reco que la détection couvre uniquement les principales villes (FR/DE/ES/US) et que le service RNVP permet la vérification croisée pour toutes les villes du monde
 - Email vide ou invalide → DQE Email
 - Téléphone formats mixtes / vide → DQE Phone
 - Doublons > 1% → DQE Deduplication

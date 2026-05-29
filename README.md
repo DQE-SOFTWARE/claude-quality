@@ -148,6 +148,14 @@ When a country column is present, postal codes are validated per row against tha
 
 Invalid codes are reported in **Dimension 5 — Broken Relationships**, grouped by country.
 
+### ZIP / city cross-check
+
+The engine detects cases where the city name in the city column contradicts the ZIP code prefix — for example, a ZIP starting with `75` (Paris) paired with the city name `LYON`.
+
+**Coverage is intentionally limited to major cities** (~15–20 per country) for France, Germany, Spain, and the US. Detection uses word-boundary matching to avoid partial-word false positives (e.g. `BERLIN` does not match `BERLINCHEN`).
+
+> **For full address validation against official national reference databases**, including all cities and postal codes worldwide, see [DQE RNVP](https://www.dqe-software.com/solutions/rnvp/) — DQE's address standardisation and geocoding service.
+
 ---
 
 ## The 6 dimensions
