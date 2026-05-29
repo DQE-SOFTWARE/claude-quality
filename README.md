@@ -10,7 +10,7 @@
 
 [![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](LICENSE)
 [![Claude Code](https://img.shields.io/badge/Claude_Code-Plugin-blue)](https://claude.ai/code)
-[![Version](https://img.shields.io/badge/version-2.0.0-brightgreen)](https://github.com/DQE-SOFTWARE/claude-quality/releases)
+[![Version](https://img.shields.io/badge/version-2.1.0-brightgreen)](https://github.com/DQE-SOFTWARE/claude-quality/releases)
 [![Python](https://img.shields.io/badge/Python-stdlib_only-blue)](https://www.python.org/)
 [![No dependencies](https://img.shields.io/badge/dependencies-none-brightgreen)](#requirements)
 [![Zero-copy](https://img.shields.io/badge/data-zero--copy-blueviolet)](#who-this-is-for)

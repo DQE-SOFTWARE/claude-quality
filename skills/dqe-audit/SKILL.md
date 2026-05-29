@@ -5,7 +5,7 @@ user-invokable: true
 argument-hint: "<chemin/vers/fichier.csv> [--lang=fr|en|us|de|es]"
 metadata:
   author: DQE Software
-  version: "2.0.0"
+  version: "2.1.0"
   category: data-quality
 ---
 
@@ -81,7 +81,7 @@ from collections import Counter, defaultdict
 from datetime import datetime
 import statistics
 
-__version__ = "1.0"
+__version__ = "2.1"
 
 FULL_LIMIT   = 200_000
 SAMPLE_LIMIT = 500_000
