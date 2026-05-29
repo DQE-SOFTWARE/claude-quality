@@ -88,27 +88,58 @@ SAMPLE_LIMIT = 500_000
 TARGET_SAMPLE = 100_000
 
 CONTEXT_PATTERNS = [
-    (r'(?i)(^id$|^(num|ref|key|code_c)$)',           'identifier', 'Identifiant',           100),
-    (r'(?i)(nom$|^nom_|lastname|last_name|^name$)',   'nom',        'Nom de famille',         95),
-    (r'(?i)(prenom|firstname|first_name|^prenom$)',   'prenom',     'Prénom',                 95),
-    (r'(?i)(^adr1$|^addr1$|adresse1|^rue$|^adresse$|^adr$)', 'adresse1', 'Adresse principale', 80),
-    (r'(?i)(^adr2$|^addr2$|compl|^bat$|^appt$)',      'adresse2',   "Complément d'adresse",   60),
-    (r'(?i)(^cp$|zipcode|zip_code|code_postal)',       'code_postal','Code postal',            90),
-    (r'(?i)(^ville$|^city$|^commune$)',                'ville',      'Ville',                  95),
-    (r'(?i)(^pays$|^country$)',                        'pays',       'Pays',                   99),
-    (r'(?i)(email|^mail$|courriel)',                   'email',      'Adresse email',          85),
-    (r'(?i)(^fixe$|^tel$|telfixe|^telephone$)',        'tel_fixe',   'Téléphone fixe',         70),
-    (r'(?i)(^portable$|^mobile$|^mob$|^gsm$)',         'tel_mobile', 'Téléphone mobile',       70),
-    (r'(?i)(^date|creat|^modif|naiss|birth|^maj$)',    'date',       'Date',                   85),
-    (r'(?i)(^civ$|civil|gender|^sexe$|^genre$)',       'civilite',   'Civilité',               90),
-    (r'(?i)(siren|siret|^b2b$|entrepri|company)',      'entreprise', 'Données entreprise',     90),
+    (r'(?i)(^id$|^(id|num|ref|key|code_c)$)',                                                                  'identifier',    'Identifier',     100),
+    (r'(?i)(prenom|firstname|first_name|first$|vorname|given_name|^prenom$|^nombre$|nombre_de_pila)',          'firstname',     'First Name',      95),
+    (r'(?i)(nom$|^nom_|lastname|last_name|last$|surname|familienname|nachname|^name$|^apellido)',              'lastname',      'Last Name',       95),
+    (r'(?i)(^adr1$|^addr1$|adresse1|^rue$|^street$|^strasse$|^voie$|^adresse$|^address$|^adr$|^direccion$|^calle$|^domicilio$)','address1','Address', 80),
+    (r'(?i)(^adr2$|^addr2$|compl|^bat$|^appt$|^piso$|^complemento$)',                                         'address2',      'Address 2',       60),
+    (r'(?i)(^cp$|zipcode|zip_code|zip$|code_postal|^postal$|^postcode$|^plz$|postleitzahl|codigo_postal|codigopostal)','postal_code','Postal Code', 90),
+    (r'(?i)(^ville$|^city$|^town$|^commune$|^stadt$|^ort$|^ciudad$|^municipio$|^localidad$|^poblacion$)',      'city',          'City',            95),
+    (r'(?i)(^pays$|^country$|^land$|^pais$)',                                                                  'country',       'Country',         99),
+    (r'(?i)(email|^mail$|courriel)',                                                                            'email',         'Email',           85),
+    (r'(?i)(^fixe$|^tel$|telfixe|^telephone$|^phone$|^tel_fixe$|^festnetz$|^telefono$|^fijo$|tel_fijo)',      'phone_landline','Phone (Landline)', 70),
+    (r'(?i)(^portable$|^mobile$|^mob$|^gsm$|^cell$|tel_mob|^handy$|mobilnummer|^movil$|^celular$)',           'phone_mobile',  'Phone (Mobile)',   70),
+    (r'(?i)(^date|creat|^modif|naiss|birth|^maj$|^update|^fecha)',                                             'date',          'Date',            85),
+    (r'(?i)(^civ$|civil|gender|^sexe$|^title$|^genre$|^anrede$|^tratamiento$|^genero$)',                      'salutation',    'Salutation',      90),
+    (r'(?i)(siren|siret|^b2b$|entrepri|company|societe|enseigne|^firma$|unternehmen|empresa|compania|^sociedad$)','company',   'Company',         90),
 ]
 
 def detect_context(col):
     for pat, key, label, prob in CONTEXT_PATTERNS:
         if re.search(pat, col):
             return key, label, prob
-    return 'unknown', 'Inconnu', 50
+    return 'unknown', 'Unknown', 50
+
+POSTAL_CODE_RULES={
+    'FR':(r'^\d{5}$','5 digits'),'FRANCE':(r'^\d{5}$','5 digits'),'FRA':(r'^\d{5}$','5 digits'),
+    'DE':(r'^\d{5}$','5 digits'),'DEU':(r'^\d{5}$','5 digits'),'GERMANY':(r'^\d{5}$','5 digits'),
+    'DEUTSCHLAND':(r'^\d{5}$','5 digits'),'ALLEMAGNE':(r'^\d{5}$','5 digits'),
+    'ES':(r'^\d{5}$','5 digits, province 01-52'),'ESP':(r'^\d{5}$','5 digits, province 01-52'),
+    'SPAIN':(r'^\d{5}$','5 digits, province 01-52'),'ESPAGNE':(r'^\d{5}$','5 digits, province 01-52'),
+    'ESPAÑA':(r'^\d{5}$','5 digits, province 01-52'),
+    'US':(r'^\d{5}(-\d{4})?$','5 digits or ZIP+4'),'USA':(r'^\d{5}(-\d{4})?$','5 digits or ZIP+4'),
+    'UNITED STATES':(r'^\d{5}(-\d{4})?$','5 digits or ZIP+4'),
+    'ÉTATS-UNIS':(r'^\d{5}(-\d{4})?$','5 digits or ZIP+4'),
+    'ETATS-UNIS':(r'^\d{5}(-\d{4})?$','5 digits or ZIP+4'),
+}
+_ES_KEYS={'ES','ESP','SPAIN','ESPAGNE','ESPAÑA'}
+
+def _vcp(val, ck):
+    rule=POSTAL_CODE_RULES.get(ck)
+    if not rule: return True
+    if not re.fullmatch(rule[0],val): return False
+    if ck in _ES_KEYS:
+        try: return 1<=int(val[:2])<=52
+        except: return False
+    return True
+
+def _infer_cp_country(vals):
+    s=[v for v in vals if v][:500]
+    if not s: return None
+    n=len(s)
+    if sum(1 for v in s if re.fullmatch(r'\d{5}-\d{4}',v))/n>0.10: return 'US'
+    if sum(1 for v in s if re.fullmatch(r'\d{5}',v))/n>0.80: return 'FR'
+    return None
 
 def detect_encoding(fp):
     for enc in ['utf-8-sig', 'utf-8', 'latin-1', 'cp1252']:
@@ -201,14 +232,14 @@ def analyze_dates(rows, headers, cmap):
         for v in vals:
             p=parse_date(v)
             if p is None:
-                issues['format_invalide']+=1
+                issues['invalid_format']+=1
                 if len(errs)<5: errs.append(v)
                 continue
             y,m,d,fmt=p; fmts[fmt]+=1
-            if m<1 or m>12: issues['mois_invalide']+=1
-            elif d<1 or d>31: issues['jour_invalide']+=1
-            elif y<1900: issues['annee_trop_ancienne']+=1
-            elif y>cy: issues['date_future']+=1
+            if m<1 or m>12: issues['invalid_month']+=1
+            elif d<1 or d>31: issues['invalid_day']+=1
+            elif y<1900: issues['year_too_old']+=1
+            elif y>cy: issues['future_date']+=1
         res[col]={'issue_count':sum(issues.values()),'issues_detail':dict(issues),
                   'formats_detected':dict(fmts),'mixed_formats':len(fmts)>1,'sample_errors':errs}
     return res
@@ -217,9 +248,9 @@ def analyze_duplicates(rows, headers, cmap):
     total=len(rows)
     rk=Counter(tuple(r.get(h,'').strip().upper() for h in headers) for r in rows)
     exact=sum(c-1 for c in rk.values() if c>1)
-    nc=[h for h in headers if cmap.get(h,('',))[0] in('nom','prenom')]
+    nc=[h for h in headers if cmap.get(h,('',))[0] in('lastname','firstname')]
     ec=[h for h in headers if cmap.get(h,('',))[0]=='email']
-    ac=[h for h in headers if cmap.get(h,('',))[0] in('adresse1','code_postal','ville')]
+    ac=[h for h in headers if cmap.get(h,('',))[0] in('address1','postal_code','city')]
     def nk(row,cols): return '|'.join(row.get(c,'').strip().upper() for c in cols if row.get(c,'').strip())
     ne=sum(c-1 for c in Counter(nk(r,nc+ec) for r in rows if nk(r,nc+ec)).values() if c>1)
     na=sum(c-1 for c in Counter(nk(r,nc+ac) for r in rows if nk(r,nc+ac)).values() if c>1)
@@ -240,19 +271,16 @@ def analyze_anomalies(rows, headers, cmap):
             if sl>0:
                 hi=ml+3*sl; lo=max(1,ml-3*sl)
                 ol=sum(1 for l in lengths if l>hi); os_=sum(1 for l in lengths if 0<l<lo)
-                if ol>0: issues.append({'type':'valeurs_trop_longues','count':ol,'threshold':f'>{round(hi)} chars'})
-                if os_>0: issues.append({'type':'valeurs_trop_courtes','count':os_,'threshold':f'<{round(lo)} chars'})
-        if ctx in('nom','prenom','ville'):
+                if ol>0: issues.append({'type':'values_too_long','count':ol,'threshold':f'>{round(hi)} chars'})
+                if os_>0: issues.append({'type':'values_too_short','count':os_,'threshold':f'<{round(lo)} chars'})
+        if ctx in('lastname','firstname','city'):
             wd=sum(1 for v in non_empty if re.search(r'\d',v))
-            if wd>0: issues.append({'type':'chiffres_dans_champ_texte','count':wd})
-        if ctx=='code_postal':
-            bad=sum(1 for v in non_empty if not re.fullmatch(r'\d{5}',v))
-            if bad>0: issues.append({'type':'format_cp_invalide','count':bad,'note':'Attendu: 5 chiffres'})
+            if wd>0: issues.append({'type':'digits_in_text_field','count':wd})
         garb=sum(1 for v in non_empty if re.fullmatch(r'[-_\.]+|n/?a|null|none|test|xxx+|yyy+|zzz+|toto|tata',v.lower()))
-        if garb>0: issues.append({'type':'valeurs_generiques','count':garb})
-        if ctx in('nom','prenom','adresse1'):
+        if garb>0: issues.append({'type':'placeholder_values','count':garb})
+        if ctx in('lastname','firstname','address1'):
             sc=sum(1 for v in non_empty if len(v.strip())==1)
-            if sc>0: issues.append({'type':'valeurs_1_caractere','count':sc})
+            if sc>0: issues.append({'type':'single_char_values','count':sc})
         if issues: res[col]={'issues':issues,'total_values':len(non_empty)}
     return res
 
@@ -266,17 +294,30 @@ def gcol(headers, cmap, *keys):
 
 def analyze_relationships(rows, headers, cmap):
     issues=[]; total=len(rows)
-    cp=gcol(headers,cmap,'code_postal'); vil=gcol(headers,cmap,'ville')
-    pay=gcol(headers,cmap,'pays'); em=gcol(headers,cmap,'email')
-    nom=gcol(headers,cmap,'nom'); pre=gcol(headers,cmap,'prenom')
-    adr=gcol(headers,cmap,'adresse1'); fix=gcol(headers,cmap,'tel_fixe')
-    mob=gcol(headers,cmap,'tel_mobile')
+    cp=gcol(headers,cmap,'postal_code'); vil=gcol(headers,cmap,'city')
+    pay=gcol(headers,cmap,'country'); em=gcol(headers,cmap,'email')
+    nom=gcol(headers,cmap,'lastname'); pre=gcol(headers,cmap,'firstname')
+    adr=gcol(headers,cmap,'address1'); fix=gcol(headers,cmap,'phone_landline')
+    mob=gcol(headers,cmap,'phone_mobile')
 
-    if cp and pay:
-        bad=sum(1 for r in rows if r.get(pay,'').strip().upper() in('FRANCE','FR','FRA')
-                and r.get(cp,'').strip() and not re.fullmatch(r'\d{5}',r.get(cp,'').strip()))
-        if bad>0: issues.append({'dimension':'A','type':'cp_incompatible_pays','count':bad,
-                                  'pct':round(bad/total*100,2),'detail':'PAYS=FRANCE mais CP ≠ 5 chiffres'})
+    if cp:
+        if pay:
+            bc=Counter()
+            for r in rows:
+                cv=(r.get(cp,'')or'').strip(); co=(r.get(pay,'')or'').strip().upper()
+                if cv and co in POSTAL_CODE_RULES and not _vcp(cv,co): bc[co]+=1
+            for ck,cnt in sorted(bc.items()):
+                _,desc=POSTAL_CODE_RULES[ck]
+                issues.append({'dimension':'A','type':'postal_code_format_invalid','country':ck,
+                               'count':cnt,'pct':round(cnt/total*100,2),'detail':f'{ck}: expected {desc}'})
+        else:
+            cpv=[(r.get(cp,'')or'').strip() for r in rows]
+            inf=_infer_cp_country(cpv)
+            if inf:
+                _,desc=POSTAL_CODE_RULES[inf]
+                bl=[v for v in cpv if v and not _vcp(v,inf)]
+                if bl: issues.append({'dimension':'A','type':'postal_code_format_invalid','count':len(bl),
+                                       'pct':round(len(bl)/total*100,2),'detail':f'Inferred ({inf}): expected {desc}'})
     if cp and vil:
         mm=0
         for r in rows:
@@ -284,28 +325,45 @@ def analyze_relationships(rows, headers, cmap):
             if dept in DEPT_CITY and vi:
                 for od,oc in DEPT_CITY.items():
                     if od!=dept and oc in vi: mm+=1; break
-        if mm>0: issues.append({'dimension':'A','type':'incoherence_cp_ville','count':mm,
+        if mm>0: issues.append({'dimension':'A','type':'postal_code_city_mismatch','count':mm,
                                   'pct':round(mm/total*100,2),'detail':'CP et VILLE semblent de régions différentes'})
     if em:
         bad=sum(1 for r in rows if (r.get(em,'')or'').strip() and classify(r.get(em,'')) not in('EMAIL','EMPTY'))
-        if bad>0: issues.append({'dimension':'B','type':'contenu_invalide_email','count':bad,
+        if bad>0: issues.append({'dimension':'B','type':'invalid_email_field_content','count':bad,
                                   'pct':round(bad/total*100,2),'detail':'Champ EMAIL contient des non-emails'})
-    for col,lbl in [(nom,'NOM'),(pre,'PRENOM')]:
+    for col,tk,lbl in [(nom,'digits_in_lastname','NOM'),(pre,'digits_in_firstname','PRENOM')]:
         if col:
             bad=sum(1 for r in rows if re.search(r'\d',r.get(col,''or'')))
-            if bad>0: issues.append({'dimension':'B','type':f'chiffres_dans_{lbl.lower()}','count':bad,
+            if bad>0: issues.append({'dimension':'B','type':tk,'count':bad,
                                       'pct':round(bad/total*100,2),'detail':f'{lbl} contient des chiffres'})
     if adr and (cp or vil):
         bad=sum(1 for r in rows if (r.get(adr,'')or'').strip() and
                 ((cp and not(r.get(cp,'')or'').strip()) or (vil and not(r.get(vil,'')or'').strip())))
-        if bad>0: issues.append({'dimension':'C','type':'adresse_incomplete','count':bad,
+        if bad>0: issues.append({'dimension':'C','type':'incomplete_address','count':bad,
                                   'pct':round(bad/total*100,2),'detail':'ADR1 renseigné mais CP ou VILLE manquant'})
     phones=[c for c in [fix,mob] if c]
     if em and phones:
         bad=sum(1 for r in rows if not(r.get(em,'')or'').strip()
                 and all(not(r.get(c,'')or'').strip() for c in phones))
-        if bad>0: issues.append({'dimension':'C','type':'contact_injoignable','count':bad,
+        if bad>0: issues.append({'dimension':'C','type':'unreachable_contact','count':bad,
                                   'pct':round(bad/total*100,2),'detail':'Aucun moyen de contact (ni email ni tél)'})
+    if em and (nom or pre):
+        rwe=[r for r in rows if(r.get(em,'')or'').strip()]; te=len(rwe)
+        if te>0:
+            if nom:
+                nn=sum(1 for r in rwe if not(r.get(nom,'')or'').strip())
+                if nn>0: issues.append({'dimension':'C','type':'email_missing_lastname','count':nn,
+                                        'pct':round(nn/te*100,2),'pct_base':'emails',
+                                        'detail':f'Email renseigné mais NOM manquant ({nn}/{te} emails)'})
+            if nom and pre:
+                nb=sum(1 for r in rwe if not(r.get(nom,'')or'').strip() and not(r.get(pre,'')or'').strip())
+                if nb>0: issues.append({'dimension':'C','type':'email_missing_both_names','count':nb,
+                                        'pct':round(nb/te*100,2),'pct_base':'emails',
+                                        'detail':f'Email renseigné mais NOM et PRENOM tous deux manquants ({nb}/{te} emails)'})
+                na=sum(1 for r in rwe if not(r.get(nom,'')or'').strip() or not(r.get(pre,'')or'').strip())
+                if na>0: issues.append({'dimension':'C','type':'email_incomplete_identity','count':na,
+                                        'pct':round(na/te*100,2),'pct_base':'emails',
+                                        'detail':f'Email renseigné mais NOM ou PRENOM manquant ({na}/{te} emails)'})
     return {'issues':issues,'issue_count':len(issues)}
 
 def analyze_formats(rows, headers, cmap):
@@ -315,29 +373,29 @@ def analyze_formats(rows, headers, cmap):
         non_empty=[v.strip() for v in (r.get(col,''or'') for r in rows) if v.strip()]
         if not non_empty: continue
         issues=[]
-        if ctx in('tel_fixe','tel_mobile'):
+        if ctx in('phone_landline','phone_mobile'):
             fc=Counter()
             for v in non_empty:
                 if v.startswith('+33'): fc['international (+33)']+=1
                 elif v.startswith('0033'): fc['international (0033)']+=1
                 elif re.match(r'^0\d',v): fc['local (0X)']+=1
-                else: fc['autre']+=1
-            if len(fc)>1: issues.append({'type':'formats_telephone_mixtes','variants':dict(fc)})
+                else: fc['other']+=1
+            if len(fc)>1: issues.append({'type':'mixed_phone_formats','variants':dict(fc)})
             dl=Counter(len(re.sub(r'[\s\.\-\(\)]','',v)) for v in non_empty)
-            if len(dl)>2: issues.append({'type':'longueurs_variables','distribution':dict(dl.most_common(5))})
-        if ctx in('nom','prenom','ville'):
+            if len(dl)>2: issues.append({'type':'variable_phone_lengths','distribution':dict(dl.most_common(5))})
+        if ctx in('lastname','firstname','city'):
             au=sum(1 for v in non_empty if v==v.upper() and not v.isdigit())
             ot=len(non_empty)-au
-            if au>0 and ot>0: issues.append({'type':'casse_mixte','all_caps':au,'other':ot,
+            if au>0 and ot>0: issues.append({'type':'mixed_case','all_caps':au,'other':ot,
                                               'pct_all_caps':round(au/len(non_empty)*100,1)})
-        if ctx=='code_postal':
+        if ctx=='postal_code':
             wz=sum(1 for v in non_empty if v.startswith('0'))
             fd=sum(1 for v in non_empty if re.fullmatch(r'\d{4}',v))
-            if wz>0 and fd>0: issues.append({'type':'cp_zero_initial_manquant','avec_zero':wz,'4_chiffres':fd})
+            if wz>0 and fd>0: issues.append({'type':'postal_code_missing_leading_zero','with_leading_zero':wz,'four_digit_no_leading_zero':fd})
         types=Counter(classify(v) for v in non_empty)
         if len(types)>1:
             dt,dc=types.most_common(1)[0]; dp=dc/len(non_empty)*100
-            if dp<95 and dt!='OTHER': issues.append({'type':'types_incoherents','dominant':dt,
+            if dp<95 and dt!='OTHER': issues.append({'type':'inconsistent_types','dominant':dt,
                                                        'pct':round(dp,1),'dist':dict(types.most_common(4))})
         if issues: res[col]={'issues':issues}
     return res
@@ -345,7 +403,7 @@ def analyze_formats(rows, headers, cmap):
 def profile_columns(rows, headers, cmap):
     out=[]
     for col in headers:
-        ck,cl,cp=cmap.get(col,('unknown','Inconnu',50))
+        ck,cl,cp=cmap.get(col,('unknown','Unknown',50))
         vals=[r.get(col,''or'') for r in rows]
         ne=[v.strip() for v in vals if v.strip()]
         out.append({'name':col,'context':cl,'context_key':ck,'context_probability':cp,

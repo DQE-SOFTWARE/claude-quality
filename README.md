@@ -87,6 +87,9 @@ bash install.sh
 # French report
 /dqe-audit ~/data/clients.csv --lang=fr
 
+# Spanish report
+/dqe-audit ~/data/clientes.csv --lang=es
+
 # Windows path (auto-converted to WSL)
 /dqe-audit "C:\Users\demo\data\export.csv" --lang=de
 ```
@@ -108,6 +111,45 @@ Runs a full data quality audit on a CSV file and generates 3 standalone HTML rep
 
 ---
 
+## Multilingual column detection
+
+The engine auto-detects column types from their names across four languages. You do not need to rename your columns — bring the file as-is.
+
+| Context | French | English | German | Spanish |
+|---|---|---|---|---|
+| First name | `prenom`, `prenom_1` | `firstname`, `first_name` | `vorname` | `nombre`, `nombre_de_pila` |
+| Last name | `nom`, `nom_famille` | `lastname`, `last_name`, `surname` | `nachname`, `familienname` | `apellido`, `apellidos` |
+| Address | `adresse`, `rue` | `address`, `street` | `strasse` | `direccion`, `calle`, `domicilio` |
+| Address 2 | `compl`, `bat`, `appt` | `addr2` | — | `piso`, `complemento` |
+| Postal code | `cp`, `code_postal` | `zipcode`, `zip_code`, `postcode` | `plz`, `postleitzahl` | `codigo_postal`, `codigopostal` |
+| City | `ville`, `commune` | `city`, `town` | `stadt`, `ort` | `ciudad`, `municipio`, `localidad`, `poblacion` |
+| Country | `pays` | `country` | `land` | `pais` |
+| Email | `mail`, `courriel` | `email` | `email` | `email` |
+| Phone (landline) | `fixe`, `tel`, `telephone` | `phone` | `festnetz` | `telefono`, `fijo`, `tel_fijo` |
+| Phone (mobile) | `portable`, `mob` | `mobile`, `cell` | `handy`, `mobilnummer` | `movil`, `celular` |
+| Date | `date_*`, `naiss`, `modif` | `date_*`, `birth`, `update` | — | `fecha_*` |
+| Salutation | `civ`, `sexe`, `genre` | `gender`, `title` | `anrede` | `tratamiento`, `genero` |
+| Company | `entreprise`, `societe`, `enseigne` | `company` | `firma`, `unternehmen` | `empresa`, `compania`, `sociedad` |
+
+> Partial matches work too: a column named `fecha_nacimiento` is detected as a date field, `apellido_paterno` as a last name.
+
+---
+
+## Postal code validation
+
+When a country column is present, postal codes are validated per row against that row's declared country. When no country column exists, the engine infers the dominant format from the data itself.
+
+| Country | Accepted formats | Notes |
+|---|---|---|
+| France (`FR`, `FRANCE`, `FRA`) | `\d{5}` | Exactly 5 digits |
+| Germany (`DE`, `GERMANY`, `DEUTSCHLAND`) | `\d{5}` | Exactly 5 digits |
+| Spain (`ES`, `SPAIN`, `ESPAGNE`, `ESPAÑA`) | `\d{5}` | 5 digits, province range 01–52 |
+| USA (`US`, `USA`, `UNITED STATES`) | `\d{5}` or `\d{5}-\d{4}` | Base ZIP or ZIP+4 |
+
+Invalid codes are reported in **Dimension 5 — Broken Relationships**, grouped by country.
+
+---
+
 ## The 6 dimensions
 
 | # | Dimension | What it detects |
@@ -116,7 +158,7 @@ Runs a full data quality audit on a CSV file and generates 3 standalone HTML rep
 | 2 | **Invalid dates** | Format errors, future dates, impossible values, mixed formats |
 | 3 | **Duplicates** | Exact duplicates, near-duplicates (name+email, name+address) |
 | 4 | **Anomalies** | Statistical outliers, generic values (null, test, xxx…), digits in text fields |
-| 5 | **Broken relationships** | ZIP/city mismatches, unreachable contacts (no email, no phone) |
+| 5 | **Broken relationships** | Postal code format per country (FR/DE/ES/US), ZIP/city mismatches, unreachable contacts (no email, no phone) |
 | 6 | **Format inconsistencies** | Mixed phone formats, inconsistent casing, type heterogeneity |
 
 ---

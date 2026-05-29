@@ -22,27 +22,91 @@ TARGET_SAMPLE_SIZE = 100_000
 # ─── CONTEXT DETECTION ────────────────────────────────────────────────────────
 
 CONTEXT_PATTERNS = [
-    (r'(?i)(^id$|^(id|num|ref|key|code_c)$)', 'identifier', 'Identifiant', 100),
-    (r'(?i)(nom$|^nom_|lastname|last_name|^name$)', 'nom', 'Nom de famille', 95),
-    (r'(?i)(prenom|firstname|first_name|^prenom$)', 'prenom', 'Prénom', 95),
-    (r'(?i)(^adr1$|^addr1$|adresse1|^rue$|^street$|^voie$|^adresse$|^adr$)', 'adresse1', 'Adresse postale principale', 80),
-    (r'(?i)(^adr2$|^addr2$|^compl|^bat$|^appt$|lieuit)', 'adresse2', "Complément d'adresse", 60),
-    (r'(?i)(^cp$|zipcode|zip_code|code_postal|^postal$)', 'code_postal', 'Code postal', 90),
-    (r'(?i)(^ville$|^city$|^commune$)', 'ville', 'Ville', 95),
-    (r'(?i)(^pays$|^country$)', 'pays', 'Pays', 99),
-    (r'(?i)(email|^mail$|courriel)', 'email', 'Adresse email', 85),
-    (r'(?i)(^fixe$|^tel$|telfixe|^telephone$|^phone$|^tel_fixe$)', 'tel_fixe', 'Téléphone fixe', 70),
-    (r'(?i)(^portable$|^mobile$|^mob$|^gsm$|^cell$|tel_mob)', 'tel_mobile', 'Téléphone mobile', 70),
-    (r'(?i)(^date|creat|^modif|naiss|birth|^maj$|^update)', 'date', 'Date', 85),
-    (r'(?i)(^civ$|civil|gender|^sexe$|^title$|^genre$)', 'civilite', 'Civilité', 90),
-    (r'(?i)(siren|siret|^b2b$|entrepri|company|societe|enseigne)', 'entreprise', 'Données entreprise', 90),
+    (r'(?i)(^id$|^(id|num|ref|key|code_c)$)',                                                                  'identifier',    'Identifier',     100),
+    # firstname MUST precede lastname: "prenom" and "nombre" contain substrings matched by the lastname pattern
+    (r'(?i)(prenom|firstname|first_name|first$|vorname|given_name|^prenom$|^nombre$|nombre_de_pila)',          'firstname',     'First Name',      95),
+    (r'(?i)(nom$|^nom_|lastname|last_name|last$|surname|familienname|nachname|^name$|^apellido)',              'lastname',      'Last Name',       95),
+    (r'(?i)(^adr1$|^addr1$|adresse1|^rue$|^street$|^strasse$|^voie$|^adresse$|^address$|^adr$|^direccion$|^calle$|^domicilio$)', 'address1', 'Address', 80),
+    (r'(?i)(^adr2$|^addr2$|^compl|^bat$|^appt$|lieuit|^piso$|^complemento$)',                                 'address2',      'Address 2',       60),
+    (r'(?i)(^cp$|zipcode|zip_code|zip$|code_postal|^postal$|^postcode$|^plz$|postleitzahl|codigo_postal|codigopostal)', 'postal_code', 'Postal Code', 90),
+    (r'(?i)(^ville$|^city$|^town$|^commune$|^stadt$|^ort$|^ciudad$|^municipio$|^localidad$|^poblacion$)',      'city',          'City',            95),
+    (r'(?i)(^pays$|^country$|^land$|^pais$)',                                                                  'country',       'Country',         99),
+    (r'(?i)(email|^mail$|courriel)',                                                                            'email',         'Email',           85),
+    (r'(?i)(^fixe$|^tel$|telfixe|^telephone$|^phone$|^tel_fixe$|^festnetz$|^telefono$|^fijo$|tel_fijo)',      'phone_landline','Phone (Landline)', 70),
+    (r'(?i)(^portable$|^mobile$|^mob$|^gsm$|^cell$|tel_mob|^handy$|mobilnummer|^movil$|^celular$)',           'phone_mobile',  'Phone (Mobile)',   70),
+    (r'(?i)(^date|creat|^modif|naiss|birth|^maj$|^update|^fecha)',                                             'date',          'Date',            85),
+    (r'(?i)(^civ$|civil|gender|^sexe$|^title$|^genre$|^anrede$|^tratamiento$|^genero$)',                      'salutation',    'Salutation',      90),
+    (r'(?i)(siren|siret|^b2b$|entrepri|company|societe|enseigne|^firma$|unternehmen|empresa|compania|^sociedad$)', 'company', 'Company',         90),
 ]
 
 def detect_context(col_name):
     for pattern, ctx_key, label, prob in CONTEXT_PATTERNS:
         if re.search(pattern, col_name):
             return ctx_key, label, prob
-    return 'unknown', 'Inconnu', 50
+    return 'unknown', 'Unknown', 50
+
+# ─── POSTAL CODE VALIDATION RULES ────────────────────────────────────────────
+
+# Maps normalised country value → (regex, human description)
+# Spain adds a province range check (01–52) inside _validate_postal_code()
+POSTAL_CODE_RULES = {
+    # France
+    'FR':           (r'^\d{5}$',          '5 digits'),
+    'FRANCE':       (r'^\d{5}$',          '5 digits'),
+    'FRA':          (r'^\d{5}$',          '5 digits'),
+    # Germany
+    'DE':           (r'^\d{5}$',          '5 digits'),
+    'DEU':          (r'^\d{5}$',          '5 digits'),
+    'GERMANY':      (r'^\d{5}$',          '5 digits'),
+    'DEUTSCHLAND':  (r'^\d{5}$',          '5 digits'),
+    'ALLEMAGNE':    (r'^\d{5}$',          '5 digits'),
+    # Spain
+    'ES':           (r'^\d{5}$',          '5 digits, province 01–52'),
+    'ESP':          (r'^\d{5}$',          '5 digits, province 01–52'),
+    'SPAIN':        (r'^\d{5}$',          '5 digits, province 01–52'),
+    'ESPAGNE':      (r'^\d{5}$',          '5 digits, province 01–52'),
+    'ESPAÑA':       (r'^\d{5}$',          '5 digits, province 01–52'),
+    # United States
+    'US':           (r'^\d{5}(-\d{4})?$', '5 digits or ZIP+4 (NNNNN-NNNN)'),
+    'USA':          (r'^\d{5}(-\d{4})?$', '5 digits or ZIP+4 (NNNNN-NNNN)'),
+    'UNITED STATES':(r'^\d{5}(-\d{4})?$', '5 digits or ZIP+4 (NNNNN-NNNN)'),
+    'ÉTATS-UNIS':   (r'^\d{5}(-\d{4})?$', '5 digits or ZIP+4 (NNNNN-NNNN)'),
+    'ETATS-UNIS':   (r'^\d{5}(-\d{4})?$', '5 digits or ZIP+4 (NNNNN-NNNN)'),
+}
+
+_ES_KEYS = {'ES', 'ESP', 'SPAIN', 'ESPAGNE', 'ESPAÑA'}
+
+
+def _validate_postal_code(val, country_key):
+    """True if val is a valid postal code for country_key. Unknown country → True (skip)."""
+    rule = POSTAL_CODE_RULES.get(country_key)
+    if rule is None:
+        return True
+    pattern, _ = rule
+    if not re.fullmatch(pattern, val):
+        return False
+    if country_key in _ES_KEYS:
+        try:
+            return 1 <= int(val[:2]) <= 52
+        except (ValueError, IndexError):
+            return False
+    return True
+
+
+def _infer_country_from_postal_codes(vals):
+    """Guess the dominant postal code country from a list of values.
+    Returns a POSTAL_CODE_RULES key, or None if undetermined."""
+    sample = [v for v in vals if v][:500]
+    if not sample:
+        return None
+    n = len(sample)
+    zip4 = sum(1 for v in sample if re.fullmatch(r'\d{5}-\d{4}', v))
+    five = sum(1 for v in sample if re.fullmatch(r'\d{5}', v))
+    if zip4 / n > 0.10:
+        return 'US'
+    if five / n > 0.80:
+        return 'FR'  # canonical 5-digit validator (covers FR/DE/ES format)
+    return None
 
 # ─── ENCODING / DELIMITER ─────────────────────────────────────────────────────
 
@@ -142,20 +206,20 @@ def analyze_dates(rows, headers, contexts_map):
         for v in vals:
             parsed = parse_date_parts(v)
             if parsed is None:
-                issues['format_invalide'] += 1
+                issues['invalid_format'] += 1
                 if len(sample_errors) < 5:
                     sample_errors.append(v)
                 continue
             year, month, day, fmt = parsed
             formats_seen[fmt] += 1
             if month < 1 or month > 12:
-                issues['mois_invalide'] += 1
+                issues['invalid_month'] += 1
             elif day < 1 or day > 31:
-                issues['jour_invalide'] += 1
+                issues['invalid_day'] += 1
             elif year < 1900:
-                issues['annee_trop_ancienne'] += 1
+                issues['year_too_old'] += 1
             elif year > current_year:
-                issues['date_future'] += 1
+                issues['future_date'] += 1
         result[col] = {
             'issue_count': sum(issues.values()),
             'issues_detail': dict(issues),
@@ -175,9 +239,9 @@ def analyze_duplicates(rows, headers, contexts_map):
     exact_dupes = sum(c - 1 for c in row_keys.values() if c > 1)
 
     # Near-duplicates
-    name_cols = [h for h in headers if contexts_map.get(h, ('',))[0] in ('nom', 'prenom')]
+    name_cols = [h for h in headers if contexts_map.get(h, ('',))[0] in ('lastname', 'firstname')]
     email_cols = [h for h in headers if contexts_map.get(h, ('',))[0] == 'email']
-    addr_cols  = [h for h in headers if contexts_map.get(h, ('',))[0] in ('adresse1', 'code_postal', 'ville')]
+    addr_cols  = [h for h in headers if contexts_map.get(h, ('',))[0] in ('address1', 'postal_code', 'city')]
 
     def near_key(row, cols):
         return '|'.join(row.get(c, '').strip().upper() for c in cols if row.get(c, '').strip())
@@ -229,36 +293,29 @@ def analyze_anomalies(rows, headers, contexts_map):
                 outlier_long  = sum(1 for l in lengths if l > hi)
                 outlier_short = sum(1 for l in lengths if 0 < l < lo)
                 if outlier_long > 0:
-                    issues.append({'type': 'valeurs_trop_longues', 'count': outlier_long,
-                                   'threshold': f'>{round(hi)} caractères'})
+                    issues.append({'type': 'values_too_long', 'count': outlier_long,
+                                   'threshold': f'>{round(hi)} chars'})
                 if outlier_short > 0:
-                    issues.append({'type': 'valeurs_trop_courtes', 'count': outlier_short,
-                                   'threshold': f'<{round(lo)} caractères'})
+                    issues.append({'type': 'values_too_short', 'count': outlier_short,
+                                   'threshold': f'<{round(lo)} chars'})
 
         # Digits inside text fields
-        if ctx in ('nom', 'prenom', 'ville'):
+        if ctx in ('lastname', 'firstname', 'city'):
             with_digits = sum(1 for v in non_empty if re.search(r'\d', v))
             if with_digits > 0:
-                issues.append({'type': 'chiffres_dans_champ_texte', 'count': with_digits})
-
-        # French CP: must be exactly 5 digits
-        if ctx == 'code_postal':
-            bad = sum(1 for v in non_empty if not re.fullmatch(r'\d{5}', v))
-            if bad > 0:
-                issues.append({'type': 'format_cp_invalide', 'count': bad,
-                               'note': 'Attendu : 5 chiffres (France)'})
+                issues.append({'type': 'digits_in_text_field', 'count': with_digits})
 
         # Placeholder / garbage values
         garbage = sum(1 for v in non_empty
                       if re.fullmatch(r'[-_\.]+|n/?a|null|none|test|xxx+|yyy+|zzz+|toto|tata', v.lower()))
         if garbage > 0:
-            issues.append({'type': 'valeurs_generiques', 'count': garbage})
+            issues.append({'type': 'placeholder_values', 'count': garbage})
 
         # Single-character in meaningful fields
-        if ctx in ('nom', 'prenom', 'adresse1'):
+        if ctx in ('lastname', 'firstname', 'address1'):
             single = sum(1 for v in non_empty if len(v.strip()) == 1)
             if single > 0:
-                issues.append({'type': 'valeurs_1_caractere', 'count': single})
+                issues.append({'type': 'single_char_values', 'count': single})
 
         if issues:
             result[col] = {'issues': issues, 'total_values': len(non_empty)}
@@ -277,28 +334,44 @@ def analyze_broken_relationships(rows, headers, contexts_map):
     issues = []
     total = len(rows)
 
-    cp_col     = get_col_by_ctx(headers, contexts_map, 'code_postal')
-    ville_col  = get_col_by_ctx(headers, contexts_map, 'ville')
-    pays_col   = get_col_by_ctx(headers, contexts_map, 'pays')
+    cp_col     = get_col_by_ctx(headers, contexts_map, 'postal_code')
+    ville_col  = get_col_by_ctx(headers, contexts_map, 'city')
+    pays_col   = get_col_by_ctx(headers, contexts_map, 'country')
     email_col  = get_col_by_ctx(headers, contexts_map, 'email')
-    nom_col    = get_col_by_ctx(headers, contexts_map, 'nom')
-    prenom_col = get_col_by_ctx(headers, contexts_map, 'prenom')
-    adr1_col   = get_col_by_ctx(headers, contexts_map, 'adresse1')
-    fixe_col   = get_col_by_ctx(headers, contexts_map, 'tel_fixe')
-    mobile_col = get_col_by_ctx(headers, contexts_map, 'tel_mobile')
+    nom_col    = get_col_by_ctx(headers, contexts_map, 'lastname')
+    prenom_col = get_col_by_ctx(headers, contexts_map, 'firstname')
+    adr1_col   = get_col_by_ctx(headers, contexts_map, 'address1')
+    fixe_col   = get_col_by_ctx(headers, contexts_map, 'phone_landline')
+    mobile_col = get_col_by_ctx(headers, contexts_map, 'phone_mobile')
 
-    # A1 — CP format vs PAYS
-    if cp_col and pays_col:
-        bad = sum(
-            1 for r in rows
-            if r.get(pays_col, '').strip().upper() in ('FRANCE', 'FR', 'FRA')
-            and r.get(cp_col, '').strip()
-            and not re.fullmatch(r'\d{5}', r.get(cp_col, '').strip())
-        )
-        if bad > 0:
-            issues.append({'dimension': 'A', 'type': 'cp_incompatible_pays',
-                           'count': bad, 'pct': round(bad / total * 100, 2),
-                           'detail': 'PAYS=FRANCE mais CP non conforme (5 chiffres attendus)'})
+    # A1 — Postal code format validation (country-aware)
+    if cp_col:
+        if pays_col:
+            # Validate each row against its declared country
+            by_country = Counter()
+            for r in rows:
+                cp_val  = (r.get(cp_col,  '') or '').strip()
+                country = (r.get(pays_col, '') or '').strip().upper()
+                if cp_val and country in POSTAL_CODE_RULES and not _validate_postal_code(cp_val, country):
+                    by_country[country] += 1
+            for country_key, count in sorted(by_country.items()):
+                _, desc = POSTAL_CODE_RULES[country_key]
+                issues.append({'dimension': 'A', 'type': 'postal_code_format_invalid',
+                               'country': country_key, 'count': count,
+                               'pct': round(count / total * 100, 2),
+                               'detail': f'{country_key}: expected {desc}'})
+        else:
+            # No country column — infer dominant format from the postal codes themselves
+            cp_vals = [(r.get(cp_col, '') or '').strip() for r in rows]
+            inferred = _infer_country_from_postal_codes(cp_vals)
+            if inferred:
+                _, desc = POSTAL_CODE_RULES[inferred]
+                bad_list = [v for v in cp_vals if v and not _validate_postal_code(v, inferred)]
+                if bad_list:
+                    issues.append({'dimension': 'A', 'type': 'postal_code_format_invalid',
+                                   'count': len(bad_list),
+                                   'pct': round(len(bad_list) / total * 100, 2),
+                                   'detail': f'Inferred format ({inferred}): expected {desc}'})
 
     # A2 — CP / VILLE mismatch (major cities)
     DEPT_CITY = {
@@ -318,7 +391,7 @@ def analyze_broken_relationships(rows, headers, contexts_map):
                         mismatches += 1
                         break
         if mismatches > 0:
-            issues.append({'dimension': 'A', 'type': 'incoherence_cp_ville',
+            issues.append({'dimension': 'A', 'type': 'postal_code_city_mismatch',
                            'count': mismatches, 'pct': round(mismatches / total * 100, 2),
                            'detail': 'Code postal et ville semblent appartenir à des régions différentes'})
 
@@ -330,16 +403,16 @@ def analyze_broken_relationships(rows, headers, contexts_map):
             and classify_value(r.get(email_col, '')) not in ('EMAIL', 'EMPTY')
         )
         if bad > 0:
-            issues.append({'dimension': 'B', 'type': 'contenu_invalide_champ_email',
+            issues.append({'dimension': 'B', 'type': 'invalid_email_field_content',
                            'count': bad, 'pct': round(bad / total * 100, 2),
                            'detail': 'Champ EMAIL contient des valeurs qui ne sont pas des emails valides'})
 
     # B2 — Name fields containing digits
-    for col, label in [(nom_col, 'NOM'), (prenom_col, 'PRENOM')]:
+    for col, type_key, label in [(nom_col, 'digits_in_lastname', 'NOM'), (prenom_col, 'digits_in_firstname', 'PRENOM')]:
         if col:
             bad = sum(1 for r in rows if re.search(r'\d', r.get(col, '') or ''))
             if bad > 0:
-                issues.append({'dimension': 'B', 'type': f'chiffres_dans_{label.lower()}',
+                issues.append({'dimension': 'B', 'type': type_key,
                                'count': bad, 'pct': round(bad / total * 100, 2),
                                'detail': f'Champ {label} contient des chiffres (valeurs suspectes)'})
 
@@ -354,7 +427,7 @@ def analyze_broken_relationships(rows, headers, contexts_map):
             )
         )
         if bad > 0:
-            issues.append({'dimension': 'C', 'type': 'adresse_incomplete',
+            issues.append({'dimension': 'C', 'type': 'incomplete_address',
                            'count': bad, 'pct': round(bad / total * 100, 2),
                            'detail': 'Adresse renseignée (ADR1) mais CP ou VILLE manquant'})
 
@@ -367,9 +440,49 @@ def analyze_broken_relationships(rows, headers, contexts_map):
             and all(not (r.get(c, '') or '').strip() for c in phone_cols)
         )
         if bad > 0:
-            issues.append({'dimension': 'C', 'type': 'contact_injoignable',
+            issues.append({'dimension': 'C', 'type': 'unreachable_contact',
                            'count': bad, 'pct': round(bad / total * 100, 2),
                            'detail': 'Aucun moyen de contact disponible (ni email, ni téléphone)'})
+
+    # C3/C4/C5 — Email-identity coherence (ratio over rows with email)
+    if email_col and (nom_col or prenom_col):
+        rows_with_email = [r for r in rows if (r.get(email_col, '') or '').strip()]
+        total_email = len(rows_with_email)
+        if total_email > 0:
+            # C3 — email present but no lastname
+            if nom_col:
+                no_nom = sum(1 for r in rows_with_email if not (r.get(nom_col, '') or '').strip())
+                if no_nom > 0:
+                    issues.append({'dimension': 'C', 'type': 'email_missing_lastname',
+                                   'count': no_nom, 'pct': round(no_nom / total_email * 100, 2),
+                                   'pct_base': 'emails',
+                                   'detail': f'Email renseigné mais NOM manquant ({no_nom}/{total_email} emails)'})
+
+            # C4/C5 — require both nom and prenom columns
+            if nom_col and prenom_col:
+                # C4 — email present, no lastname AND no firstname (anonymous email)
+                no_both = sum(
+                    1 for r in rows_with_email
+                    if not (r.get(nom_col, '') or '').strip()
+                    and not (r.get(prenom_col, '') or '').strip()
+                )
+                if no_both > 0:
+                    issues.append({'dimension': 'C', 'type': 'email_missing_both_names',
+                                   'count': no_both, 'pct': round(no_both / total_email * 100, 2),
+                                   'pct_base': 'emails',
+                                   'detail': f'Email renseigné mais NOM et PRENOM tous deux manquants ({no_both}/{total_email} emails)'})
+
+                # C5 — email present, no lastname OR no firstname (incomplete identity)
+                no_any = sum(
+                    1 for r in rows_with_email
+                    if not (r.get(nom_col, '') or '').strip()
+                    or not (r.get(prenom_col, '') or '').strip()
+                )
+                if no_any > 0:
+                    issues.append({'dimension': 'C', 'type': 'email_incomplete_identity',
+                                   'count': no_any, 'pct': round(no_any / total_email * 100, 2),
+                                   'pct_base': 'emails',
+                                   'detail': f'Email renseigné mais NOM ou PRENOM manquant ({no_any}/{total_email} emails)'})
 
     return {'issues': issues, 'issue_count': len(issues)}
 
@@ -387,7 +500,7 @@ def analyze_formats(rows, headers, contexts_map):
         issues = []
 
         # Phone format variants
-        if ctx in ('tel_fixe', 'tel_mobile'):
+        if ctx in ('phone_landline', 'phone_mobile'):
             fmt_counter = Counter()
             for v in non_empty:
                 if v.startswith('+33'):
@@ -397,34 +510,34 @@ def analyze_formats(rows, headers, contexts_map):
                 elif re.match(r'^0\d', v):
                     fmt_counter['local (0X...)'] += 1
                 else:
-                    fmt_counter['autre'] += 1
+                    fmt_counter['other'] += 1
             if len(fmt_counter) > 1:
-                issues.append({'type': 'formats_telephone_mixtes', 'variants': dict(fmt_counter)})
+                issues.append({'type': 'mixed_phone_formats', 'variants': dict(fmt_counter)})
             # Variable digit counts after stripping separators
             digit_lengths = Counter(
                 len(re.sub(r'[\s\.\-\(\)]', '', v)) for v in non_empty
             )
             if len(digit_lengths) > 2:
-                issues.append({'type': 'longueurs_telephone_variables',
+                issues.append({'type': 'variable_phone_lengths',
                                'distribution': dict(digit_lengths.most_common(5))})
 
         # Case inconsistencies
-        if ctx in ('nom', 'prenom', 'ville'):
+        if ctx in ('lastname', 'firstname', 'city'):
             all_upper = sum(1 for v in non_empty if v == v.upper() and not v.isdigit())
             other     = len(non_empty) - all_upper
             if all_upper > 0 and other > 0:
                 pct_caps = round(all_upper / len(non_empty) * 100, 1)
-                issues.append({'type': 'casse_mixte',
+                issues.append({'type': 'mixed_case',
                                'all_caps': all_upper, 'other': other,
                                'pct_all_caps': pct_caps})
 
-        # CP: missing leading zero
-        if ctx == 'code_postal':
+        # Postal code: missing leading zero (4-digit instead of 5)
+        if ctx == 'postal_code':
             with_zero    = sum(1 for v in non_empty if v.startswith('0'))
             four_digit   = sum(1 for v in non_empty if re.fullmatch(r'\d{4}', v))
             if with_zero > 0 and four_digit > 0:
-                issues.append({'type': 'cp_zero_initial_manquant',
-                               'avec_zero': with_zero, 'sans_zero_4_chiffres': four_digit})
+                issues.append({'type': 'postal_code_missing_leading_zero',
+                               'with_leading_zero': with_zero, 'four_digit_no_leading_zero': four_digit})
 
         # Type consistency within column
         types = Counter(classify_value(v) for v in non_empty)
@@ -432,7 +545,7 @@ def analyze_formats(rows, headers, contexts_map):
             dominant_type, dominant_count = types.most_common(1)[0]
             dominant_pct = dominant_count / len(non_empty) * 100
             if dominant_pct < 95 and dominant_type != 'OTHER':
-                issues.append({'type': 'types_incoherents',
+                issues.append({'type': 'inconsistent_types',
                                'dominant_type': dominant_type,
                                'dominant_pct': round(dominant_pct, 1),
                                'distribution': dict(types.most_common(4))})
@@ -447,7 +560,7 @@ def analyze_formats(rows, headers, contexts_map):
 def profile_columns(rows, headers, contexts_map):
     result = []
     for col in headers:
-        ctx_key, ctx_label, ctx_prob = contexts_map.get(col, ('unknown', 'Inconnu', 50))
+        ctx_key, ctx_label, ctx_prob = contexts_map.get(col, ('unknown', 'Unknown', 50))
         vals = [r.get(col, '') or '' for r in rows]
         non_empty = [v.strip() for v in vals if v.strip()]
         types = Counter(classify_value(v) for v in vals)
