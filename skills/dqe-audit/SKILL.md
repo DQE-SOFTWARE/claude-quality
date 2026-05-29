@@ -1,8 +1,8 @@
 ---
 name: dqe-audit
-description: "Audit qualité de données CSV — analyse les 6 dimensions DQE (complétude, dates invalides, doublons, anomalies, relations cassées, formats) et génère 3 rapports HTML standalone brandés DQE Software : rapport d'audit, guide client, guide chef de projet. Utiliser quand l'utilisateur demande un audit, une analyse qualité, une analyse DQE, ou fournit un fichier CSV à analyser. Déclencher avec /dqe-audit <chemin/vers/fichier.csv>"
+description: "CSV data quality audit — analyses 6 DQE dimensions (completeness, invalid dates, duplicates, anomalies, broken relationships, formats) and generates 3 branded standalone HTML reports: audit report, client guide, project manager guide. Use when the user asks for an audit, quality analysis, DQE analysis, or provides a CSV file to analyse. Trigger with /dqe-audit <path/to/file.csv>"
 user-invokable: true
-argument-hint: "<chemin/vers/fichier.csv> [--lang=fr|en|us|de|es]"
+argument-hint: "<path/to/file.csv> [--lang=fr|en|us|de|es]"
 metadata:
   author: DQE Software
   version: "2.1.0"
@@ -11,30 +11,30 @@ metadata:
 
 # DQE CSV Audit — Agent Skill
 
-Tu es un agent d'audit qualité de données pour DQE Software. Quand ce skill est déclenché, tu analyses un fichier CSV selon les 6 dimensions DQE et tu génères **3 rapports HTML professionnels** : rapport d'audit technique, guide client, guide chef de projet.
+You are a data quality audit agent for DQE Software. When this skill is triggered, you analyse a CSV file across 6 DQE dimensions and generate **3 professional HTML reports**: a technical audit report, a client guide, and a project manager guide.
 
 ---
 
-## ÉTAPE 0 — Extraction du chemin fichier et de la locale
+## STEP 0 — Extract file path and locale
 
-Le chemin du fichier CSV est fourni dans `$ARGUMENTS`.
+The CSV file path is provided in `$ARGUMENTS`.
 
-Extrait :
-1. Le chemin CSV : tout argument qui ne commence pas par `--`
-2. La langue : paramètre `--lang=XX` si présent (fr, en, us, de, es). `us` est un alias de `en`. Défaut : `en`
+Extract:
+1. The CSV path: any argument that does not start with `--`
+2. The language: `--lang=XX` parameter if present (fr, en, us, de, es). `us` is an alias for `en`. Default: `en`
 
-Si aucun fichier CSV n'est trouvé, réponds :
+If no CSV file is found, reply:
 ```
-Fournis le chemin de ton fichier CSV :
-  /dqe-audit /chemin/vers/fichier.csv [--lang=fr|en|us|de|es]
+Please provide the path to your CSV file:
+  /dqe-audit /path/to/file.csv [--lang=fr|en|us|de|es]
 ```
-Et arrête.
+And stop.
 
-### Tableau de localisation
+### Localization Table
 
-Utilise ces labels dans tous les HTML générés selon la langue choisie :
+Use these labels in all generated HTML based on the chosen language:
 
-| Clé | fr | en | de | es |
+| Key | fr | en | de | es |
 |-----|----|----|----|----|
 | doc_audit | Rapport d'Audit | Audit Report | Prüfbericht | Informe de Auditoría |
 | doc_client | Guide Client | Client Guide | Kundenleitfaden | Guía del Cliente |
@@ -64,14 +64,14 @@ Utilise ces labels dans tous les HTML générés selon la langue choisie :
 
 ---
 
-## ÉTAPE 1 — Installation du script d'analyse (auto, silencieuse)
+## STEP 1 — Install the analysis script (automatic, silent)
 
-Vérifie si le script existe déjà :
+Check if the script already exists:
 ```bash
 [ -f /tmp/dqe_analyze.py ] && python3 /tmp/dqe_analyze.py --version 2>/dev/null && echo "OK" || echo "WRITE"
 ```
 
-Si le résultat n'est pas `OK`, écris le script suivant dans `/tmp/dqe_analyze.py` via le Write tool :
+If the result is not `OK`, write the following script to `/tmp/dqe_analyze.py` via the Write tool:
 
 ```python
 #!/usr/bin/env python3
@@ -183,18 +183,18 @@ class Progress:
 
 def preflight(fp, enc, delim):
     errs = []
-    if not os.path.isfile(fp): errs.append(f"Fichier introuvable : {fp}"); return False, errs
-    if os.path.getsize(fp)==0: errs.append("Fichier vide."); return False, errs
+    if not os.path.isfile(fp): errs.append(f"File not found: {fp}"); return False, errs
+    if os.path.getsize(fp)==0: errs.append("File is empty."); return False, errs
     try:
         with open(fp, encoding=enc, errors='replace', newline='') as f:
             r = csv.reader(f, delimiter=delim)
             hdr = next(r, None)
-            if not hdr or len(hdr)<2: errs.append("Header absent ou mono-colonne."); return False, errs
+            if not hdr or len(hdr)<2: errs.append("Missing or single-column header."); return False, errs
             nc = len(hdr); rag=0
             for i,row in enumerate(r):
                 if i>=200: break
                 if len(row)!=nc: rag+=1
-            if rag>5: errs.append(f"CSV mal formé : {rag} lignes incohérentes.")
+            if rag>5: errs.append(f"Malformed CSV: {rag} inconsistent rows.")
     except Exception as e: errs.append(str(e))
     return len(errs)==0, errs
 
@@ -387,23 +387,23 @@ def analyze_relationships(rows, headers, cmap):
     if em:
         bad=sum(1 for r in rows if (r.get(em,'')or'').strip() and classify(r.get(em,'')) not in('EMAIL','EMPTY'))
         if bad>0: issues.append({'dimension':'B','type':'invalid_email_field_content','count':bad,
-                                  'pct':round(bad/total*100,2),'detail':'Champ EMAIL contient des non-emails'})
-    for col,tk,lbl in [(nom,'digits_in_lastname','NOM'),(pre,'digits_in_firstname','PRENOM')]:
+                                  'pct':round(bad/total*100,2),'detail':'EMAIL field contains non-email values'})
+    for col,tk,lbl in [(nom,'digits_in_lastname','LASTNAME'),(pre,'digits_in_firstname','FIRSTNAME')]:
         if col:
             bad=sum(1 for r in rows if re.search(r'\d',r.get(col,''or'')))
             if bad>0: issues.append({'dimension':'B','type':tk,'count':bad,
-                                      'pct':round(bad/total*100,2),'detail':f'{lbl} contient des chiffres'})
+                                      'pct':round(bad/total*100,2),'detail':f'{lbl} field contains digits'})
     if adr and (cp or vil):
         bad=sum(1 for r in rows if (r.get(adr,'')or'').strip() and
                 ((cp and not(r.get(cp,'')or'').strip()) or (vil and not(r.get(vil,'')or'').strip())))
         if bad>0: issues.append({'dimension':'C','type':'incomplete_address','count':bad,
-                                  'pct':round(bad/total*100,2),'detail':'ADR1 renseigné mais CP ou VILLE manquant'})
+                                  'pct':round(bad/total*100,2),'detail':'Address provided but ZIP or CITY missing'})
     phones=[c for c in [fix,mob] if c]
     if em and phones:
         bad=sum(1 for r in rows if not(r.get(em,'')or'').strip()
                 and all(not(r.get(c,'')or'').strip() for c in phones))
         if bad>0: issues.append({'dimension':'C','type':'unreachable_contact','count':bad,
-                                  'pct':round(bad/total*100,2),'detail':'Aucun moyen de contact (ni email ni tél)'})
+                                  'pct':round(bad/total*100,2),'detail':'No contact method (no email or phone)'})
     if em and (nom or pre):
         rwe=[r for r in rows if(r.get(em,'')or'').strip()]; te=len(rwe)
         if te>0:
@@ -411,16 +411,16 @@ def analyze_relationships(rows, headers, cmap):
                 nn=sum(1 for r in rwe if not(r.get(nom,'')or'').strip())
                 if nn>0: issues.append({'dimension':'C','type':'email_missing_lastname','count':nn,
                                         'pct':round(nn/te*100,2),'pct_base':'emails',
-                                        'detail':f'Email renseigné mais NOM manquant ({nn}/{te} emails)'})
+                                        'detail':f'Email provided but LASTNAME missing ({nn}/{te} emails)'})
             if nom and pre:
                 nb=sum(1 for r in rwe if not(r.get(nom,'')or'').strip() and not(r.get(pre,'')or'').strip())
                 if nb>0: issues.append({'dimension':'C','type':'email_missing_both_names','count':nb,
                                         'pct':round(nb/te*100,2),'pct_base':'emails',
-                                        'detail':f'Email renseigné mais NOM et PRENOM tous deux manquants ({nb}/{te} emails)'})
+                                        'detail':f'Email provided but both LASTNAME and FIRSTNAME missing ({nb}/{te} emails)'})
                 na=sum(1 for r in rwe if not(r.get(nom,'')or'').strip() or not(r.get(pre,'')or'').strip())
                 if na>0: issues.append({'dimension':'C','type':'email_incomplete_identity','count':na,
                                         'pct':round(na/te*100,2),'pct_base':'emails',
-                                        'detail':f'Email renseigné mais NOM ou PRENOM manquant ({na}/{te} emails)'})
+                                        'detail':f'Email provided but LASTNAME or FIRSTNAME missing ({na}/{te} emails)'})
     return {'issues':issues,'issue_count':len(issues)}
 
 def analyze_formats(rows, headers, cmap):
@@ -475,17 +475,17 @@ def main():
     p.add_argument('--output',default=None)
     args=p.parse_args()
     prog=Progress(args.progress); t0=time.time()
-    prog.emit('PREFLIGHT',0,'Vérification du fichier...')
+    prog.emit('PREFLIGHT',0,'Checking file...')
     fp=os.path.abspath(args.csv_file)
     enc=detect_encoding(fp); delim=detect_delimiter(fp,enc)
     ok,errs=preflight(fp,enc,delim)
     if not ok:
         prog.emit('ERROR',0,' | '.join(errs)); prog.close()
         print(json.dumps({'error':errs},ensure_ascii=False)); sys.exit(1)
-    prog.emit('PREFLIGHT',3,'Comptage des lignes...')
+    prog.emit('PREFLIGHT',3,'Counting lines...')
     total_lines=count_lines(fp)-1
     if total_lines>SAMPLE_LIMIT:
-        msg=f"Fichier trop volumineux : {total_lines:,} lignes (max {SAMPLE_LIMIT:,}). Conseil : head -n {FULL_LIMIT+1} \"{fp}\" > sample.csv"
+        msg=f"File too large: {total_lines:,} rows (max {SAMPLE_LIMIT:,}). Suggestion: head -n {FULL_LIMIT+1} \"{fp}\" > sample.csv"
         prog.emit('ERROR',0,msg); prog.close(); print(json.dumps({'error':msg},ensure_ascii=False)); sys.exit(2)
     is_sampled=total_lines>FULL_LIMIT
     step=max(2,total_lines//TARGET_SAMPLE) if is_sampled else 1
@@ -493,8 +493,8 @@ def main():
         reader=csv.DictReader(f,delimiter=delim); headers=list(reader.fieldnames or [])
     eff=total_lines if not is_sampled else total_lines//step
     eta=estimate_eta(eff,len(headers))
-    prog.emit('PREFLIGHT',5,f'✓ {total_lines:,} lignes · {len(headers)} colonnes{"  (échantillon 1/"+str(step)+")" if is_sampled else ""}',str(eta))
-    prog.emit('STEP',10,'Lecture du fichier...',str(eta-2))
+    prog.emit('PREFLIGHT',5,f'✓ {total_lines:,} rows · {len(headers)} columns{"  (sample 1/"+str(step)+")" if is_sampled else ""}',str(eta))
+    prog.emit('STEP',10,'Reading file...',str(eta-2))
     rows=[]
     with open(fp,encoding=enc,errors='replace',newline='') as f:
         reader=csv.DictReader(f,delimiter=delim)
@@ -503,13 +503,13 @@ def main():
             rows.append(dict(row))
     cmap={h:detect_context(h) for h in headers}
     def rem(frac): elapsed=time.time()-t0; return str(max(0,int(elapsed/frac-elapsed))) if frac>0 else '?'
-    prog.emit('STEP',20,'Taux de complétude...',rem(0.20)); comp=analyze_completion(rows,headers)
-    prog.emit('STEP',35,'Validation des dates...',rem(0.35)); dates=analyze_dates(rows,headers,cmap)
-    prog.emit('STEP',50,'Détection des doublons...',rem(0.50)); dupes=analyze_duplicates(rows,headers,cmap)
-    prog.emit('STEP',65,'Anomalies & valeurs aberrantes...',rem(0.65)); anom=analyze_anomalies(rows,headers,cmap)
-    prog.emit('STEP',80,'Relations cassées (A+B+C)...',rem(0.80)); rels=analyze_relationships(rows,headers,cmap)
-    prog.emit('STEP',92,'Cohérence des formats...',rem(0.92)); fmts=analyze_formats(rows,headers,cmap)
-    prog.emit('STEP',97,'Profilage des colonnes...','1'); cols=profile_columns(rows,headers,cmap)
+    prog.emit('STEP',20,'Completeness rate...',rem(0.20)); comp=analyze_completion(rows,headers)
+    prog.emit('STEP',35,'Date validation...',rem(0.35)); dates=analyze_dates(rows,headers,cmap)
+    prog.emit('STEP',50,'Duplicate detection...',rem(0.50)); dupes=analyze_duplicates(rows,headers,cmap)
+    prog.emit('STEP',65,'Anomalies & outliers...',rem(0.65)); anom=analyze_anomalies(rows,headers,cmap)
+    prog.emit('STEP',80,'Broken relationships (A+B+C)...',rem(0.80)); rels=analyze_relationships(rows,headers,cmap)
+    prog.emit('STEP',92,'Format consistency...',rem(0.92)); fmts=analyze_formats(rows,headers,cmap)
+    prog.emit('STEP',97,'Column profiling...','1'); cols=profile_columns(rows,headers,cmap)
     fill=comp['global_fill_rate']; dp=min(dupes['deduplication_potential_pct'],20); rp=min(len(rels['issues'])*3,15)
     qs=round(max(0,fill-dp-rp),1)
     result={'filename':os.path.basename(fp),'analysis_date':datetime.now().strftime('%B %d, %Y'),
@@ -518,7 +518,7 @@ def main():
             'elapsed_seconds':round(time.time()-t0,1),'quality_score':qs,'columns':cols,
             'dimensions':{'1_completion_rate':comp,'2_invalid_dates':dates,'3_duplicate_records':dupes,
                           '4_anomalies_outliers':anom,'5_broken_relationships':rels,'6_format_inconsistencies':fmts}}
-    prog.emit('DONE',100,f'Analyse terminée ✓ ({round(time.time()-t0,1)}s)','0')
+    prog.emit('DONE',100,f'Analysis complete ✓ ({round(time.time()-t0,1)}s)','0')
     prog.close()
     out=json.dumps(result,ensure_ascii=False,indent=2)
     if args.output:
@@ -530,33 +530,33 @@ if __name__=='__main__': main()
 
 ---
 
-## ÉTAPE 2 — Validation du fichier CSV
+## STEP 2 — Validate the CSV file
 
-Résous le chemin absolu. Si chemin Windows (`C:\...`), convertis en WSL (`/mnt/c/...`) :
+Resolve the absolute path. If Windows path (`C:\...`), convert to WSL (`/mnt/c/...`):
 
 ```bash
 CSV_PATH=$(realpath "$CSV_FILE" 2>/dev/null || echo "INVALID")
 [ -f "$CSV_PATH" ] && echo "OK:$CSV_PATH" || echo "MISSING:$CSV_PATH"
 ```
 
-Si `MISSING`, informe l'utilisateur et arrête.
+If `MISSING`, inform the user and stop.
 
 ---
 
-## ÉTAPE 3 — Lancement de l'analyse avec progression temps réel
+## STEP 3 — Run the analysis with real-time progress
 
 ```bash
 SID=$(date +%s) && echo "SID=$SID"
 ```
 
-Lance en arrière-plan (`run_in_background: true`) :
+Run in background (`run_in_background: true`):
 ```bash
 python3 /tmp/dqe_analyze.py "$CSV_PATH" \
   --progress "/tmp/dqe_prog_${SID}.log" \
   --output "/tmp/dqe_result_${SID}.json"
 ```
 
-Puis Monitor pour la progression :
+Then Monitor for progress:
 ```bash
 tail -n +1 -f /tmp/dqe_prog_${SID}.log | while IFS= read -r line; do
   STAT=$(echo "$line" | cut -d'|' -f1)
@@ -566,17 +566,17 @@ tail -n +1 -f /tmp/dqe_prog_${SID}.log | while IFS= read -r line; do
 done
 ```
 
-En cas d'`ERROR`, affiche le message et arrête.
+If `ERROR`, display the message and stop.
 
 ---
 
-## ÉTAPE 4 — Lecture des résultats
+## STEP 4 — Read the results
 
 ```bash
 cat /tmp/dqe_result_${SID}.json
 ```
 
-Parse le JSON. Normalise la locale (`us` → `en`), puis calcule les chemins de sortie avec détection de collision :
+Parse the JSON. Normalize the locale (`us` → `en`), then compute output paths with collision detection:
 
 ```bash
 DIR=$(dirname "$CSV_PATH")
@@ -584,7 +584,7 @@ BASE=$(basename "$CSV_PATH" .csv)
 [ "$LANG" = "us" ] && LANG="en"
 DATE_TAG=$(date +%Y%m%d)
 
-# Retourne le chemin libre : base_suffix_DATE_LANG.html, puis base_suffix_DATE_LANG (2).html, etc.
+# Returns the available path: base_suffix_DATE_LANG.html, then base_suffix_DATE_LANG (2).html, etc.
 compute_out() {
   local p="${DIR}/${BASE}_${1}_${DATE_TAG}_${LANG}.html"
   if [ ! -f "$p" ]; then echo "$p"; return; fi
@@ -601,36 +601,36 @@ echo "CLIENT=$CLIENT_PATH"
 echo "PM=$PM_PATH"
 ```
 
-Les 3 fichiers se linkeront entre eux via la nav-bar avec ces noms de fichiers (basename uniquement, sans chemin).
+The 3 files will link to each other via the nav-bar using these filenames (basename only, without path).
 
 ---
 
-## DESIGN SYSTEM COMMUN
+## COMMON DESIGN SYSTEM
 
-Toutes les pages partagent cette palette et ces classes CSS de base :
+All pages share this colour palette and base CSS classes:
 
 ```
-Couleurs :
-  --primary : #1933AC   (bleu DQE)
-  --accent  : #00dba3   (vert teal)
+Colours:
+  --primary : #1933AC   (DQE blue)
+  --accent  : #00dba3   (teal green)
   --good    : #00B486 / #00dba3
   --warn    : #FFB700
   --bad     : #E74C3C / #ff6b6b
   --bg      : #F5F5F5
   --text    : #1a1a2e
 
-Logo HTML (avec fallback) :
+HTML Logo (with fallback):
   <img src="https://dqe.tech/wp-content/uploads/2022/05/logo-DQE-noBase-light.svg"
        alt="DQE Software" height="32"
        onerror="this.style.display='none';this.nextElementSibling.style.display='flex'">
   <div class="cover-logo-text" style="display:none">DQE<span style="color:#00dba3">.</span></div>
 
-Score coloring :
+Score colouring:
   >= 80 → good (#00dba3) · 60-79 → warn (#FFB700) · < 60 → bad (#ff6b6b)
 
-Nav-bar (commune aux 3 fichiers, lien actif = background #1933AC) :
+Nav-bar (shared across all 3 files, active link = background #1933AC):
   <div class="nav-bar">
-    <span class="nav-label">Livrables</span>
+    <span class="nav-label">Deliverables</span>
     <div class="nav-links">
       <a href="{AUDIT_BASENAME}" class="nav-link {active|client}">📊 {nav_audit}</a>
       <a href="{CLIENT_BASENAME}" class="nav-link {active|client}">👤 {nav_client}</a>
@@ -638,7 +638,7 @@ Nav-bar (commune aux 3 fichiers, lien actif = background #1933AC) :
     </div>
   </div>
 
-CSS commun de base :
+Base CSS:
   *,*::before,*::after{box-sizing:border-box;margin:0;padding:0}
   html{font-size:14px}
   body{font-family:'Segoe UI',Arial,sans-serif;background:#F5F5F5;color:#1a1a2e;line-height:1.6}
@@ -694,28 +694,28 @@ CSS commun de base :
 
 ---
 
-## ÉTAPE 5 — Document 1 : Rapport d'Audit (technique)
+## STEP 5 — Document 1: Audit Report (technical)
 
-Génère `${AUDIT_PATH}` via Write tool. Ce document est le rapport technique complet.
+Generate `${AUDIT_PATH}` via Write tool. This document is the complete technical report.
 
-**Structure du rapport d'audit :**
+**Audit report structure:**
 
-**Cover** : logo DQE + date | titre = `{doc_audit} — {filename}` | eyebrow = "CSV Data Quality Audit" | métrics couverts :
-- Score badge : `{quality_score}/100` coloré selon seuils
-- KPIs : `{total_rows:,} {records}` · `{total_columns} {columns}` · `{encoding}` · `{analysed_in} {elapsed_seconds}s`
-- Si sampled : banner ⚠️ `Analyse sur échantillon 1/{sample_step}`
+**Cover**: DQE logo + date | title = `{doc_audit} — {filename}` | eyebrow = "CSV Data Quality Audit" | covered metrics:
+- Score badge: `{quality_score}/100` coloured by thresholds
+- KPIs: `{total_rows:,} {records}` · `{total_columns} {columns}` · `{encoding}` · `{analysed_in} {elapsed_seconds}s`
+- If sampled: ⚠️ banner `Analysis on sample 1/{sample_step}`
 
-**Nav-bar** : lien actif sur "Rapport d'Audit", liens vers client_guide et pm_guide
+**Nav-bar**: active link on "Audit Report", links to client_guide and pm_guide
 
-**Section 1 — Analyse Technique** (`{tech_context}`) :
-Tableau : Encodage / Délimiteur / Lignes totales / Colonnes / Colonnes vides / Durée / Mode (complet ou échantillon)
+**Section 1 — Technical Analysis** (`{tech_context}`):
+Table: Encoding / Delimiter / Total rows / Columns / Empty columns / Duration / Mode (full or sample)
 
-**Section 2 — Profilage des colonnes** :
-Tableau par colonne : Nom | Contexte détecté | Confiance | Remplissage (fill bar) | Type dominant | Statut (badge ok/warn/err)
+**Section 2 — Column profiling**:
+Table per column: Name | Detected context | Confidence | Fill rate (fill bar) | Dominant type | Status (badge ok/warn/err)
 
-**Section 3 — Résumé exécutif** :
-6 dim-cards (grille 3×2), une par dimension. Chaque carte : icône + nom localisé + valeur principale + détail 1 ligne
-CSS additionnel :
+**Section 3 — Executive summary**:
+6 dim-cards (3×2 grid), one per dimension. Each card: icon + localised name + main value + 1-line detail
+Additional CSS:
 ```
 .dim-grid{display:grid;grid-template-columns:repeat(3,1fr);gap:14px;margin-bottom:24px}
 .dim-card{border-radius:10px;padding:18px;border-top:3px solid #1933AC;background:#f8f9fd}
@@ -730,15 +730,15 @@ CSS additionnel :
 .dim-card.db .dim-val{color:#c0392b}
 .dim-detail{font-size:11px;color:#7a7a8c;margin-top:5px;line-height:1.5}
 ```
-Suivi d'un paragraphe narratif de 3-4 phrases résumant l'état global.
+Followed by a narrative paragraph of 3–4 sentences summarising the overall state.
 
-**Section 4 — Analyse détaillée 6 dimensions** :
-Sous-sections 4.1 à 4.6 avec pour chaque dimension :
-- metric boxes (alert/warn/good) pour les chiffres clés
-- tableau détaillé par colonne si applicable
-- liste des issues avec icône + titre + détail
+**Section 4 — Detailed analysis across 6 dimensions**:
+Sub-sections 4.1 to 4.6, each containing:
+- metric boxes (alert/warn/good) for key figures
+- detailed table per column where applicable
+- list of issues with icon + title + detail
 
-CSS additionnel :
+Additional CSS:
 ```
 .metrics{display:flex;gap:14px;flex-wrap:wrap;margin-bottom:20px}
 .mbox{flex:1;min-width:150px;border-radius:10px;padding:16px 20px;background:#f8f9fd;border-top:3px solid #1933AC}
@@ -762,17 +762,17 @@ CSS additionnel :
 .iss-detail{font-size:12px;color:#7a7a8c;line-height:1.5}
 ```
 
-**Section 5 — Recommandations** :
-Grille 2 colonnes de reco-cards (fond #1933AC). Règles de sélection des services :
-- Adresses invalides / CP incohérent / `postal_code_city_mismatch` → DQE Address (RNVP) — préciser dans le texte de la reco que la détection couvre uniquement les principales villes (FR/DE/ES/US) et que le service RNVP permet la vérification croisée pour toutes les villes du monde
-- Email vide ou invalide → DQE Email
-- Téléphone formats mixtes / vide → DQE Phone
-- Doublons > 1% → DQE Deduplication
-- Contacts injoignables > 10% → DQE Enrich
-- Score < 70 ou anomalies généralisées → DQE One
-- Score < 80 (systématique) → DQE Monitoring
+**Section 5 — Recommendations**:
+2-column grid of reco-cards (background #1933AC). Service selection rules:
+- Invalid addresses / inconsistent ZIP / `postal_code_city_mismatch` → DQE Address (RNVP) — specify in the reco text that detection covers only major cities (FR/DE/ES/US) and that the RNVP service enables cross-checking for all cities worldwide
+- Empty or invalid email → DQE Email
+- Mixed phone formats / empty → DQE Phone
+- Duplicates > 1% → DQE Deduplication
+- Unreachable contacts > 10% → DQE Enrich
+- Score < 70 or widespread anomalies → DQE One
+- Score < 80 (systematic) → DQE Monitoring
 
-CSS :
+CSS:
 ```
 .reco-grid{display:grid;grid-template-columns:repeat(2,1fr);gap:14px}
 .reco-card{border-radius:12px;padding:22px;background:#1933AC;color:#fff;position:relative;overflow:hidden}
@@ -786,32 +786,32 @@ CSS :
   border-radius:6px;padding:6px 12px;display:inline-block;font-weight:600;color:#00dba3;position:relative}
 ```
 
-**Section 6 — Conclusion** :
-4-5 phrases : score + qualification / point positif / problème critique en chiffres / call to action DQE Software.
+**Section 6 — Conclusion**:
+4–5 sentences: score + qualification / positive point / critical issue in figures / DQE Software call to action.
 
-**Footer** :
+**Footer**:
 ```html
 <div class="report-footer">
-  Rapport généré par <strong>DQE Software — dqe-quality v2.0.0</strong> · {analysis_date}
+  Report generated by <strong>DQE Software — dqe-quality v2.0.0</strong> · {analysis_date}
 </div>
 ```
 
 ---
 
-## ÉTAPE 6 — Document 2 : Guide Client (business)
+## STEP 6 — Document 2: Client Guide (business)
 
-Génère `${CLIENT_PATH}` via Write tool. Ce document est destiné au client final — langage business, pas technique, focus impact métier.
+Generate `${CLIENT_PATH}` via Write tool. This document is for the end client — business language, not technical, focused on business impact.
 
-**Nav-bar** : lien actif sur "Guide Client"
+**Nav-bar**: active link on "Client Guide"
 
-**Cover** :
+**Cover**:
 - eyebrow = "{confidential_client}"
-- titre = "{your_score}" (localisé)
-- sous-titre = `{filename} — {total_rows:,} {records} analysés`
-- 3 key-metrics (big numbers) : Score/100 · % contacts injoignables (dim 5) · % doublons (dim 3)
-- cover-meta : date · volume · mode analyse
+- title = "{your_score}" (localised)
+- subtitle = `{filename} — {total_rows:,} {records} analysed`
+- 3 key-metrics (big numbers): Score/100 · % unreachable contacts (dim 5) · % duplicates (dim 3)
+- cover-meta: date · volume · analysis mode
 
-CSS additionnel pour la cover :
+Additional CSS for the cover:
 ```
 .cover-subtitle{font-size:18px;color:rgba(255,255,255,.7);margin-bottom:40px;font-weight:400}
 .cover-badge{display:inline-flex;align-items:center;gap:8px;background:rgba(0,219,163,.2);
@@ -827,12 +827,12 @@ CSS additionnel pour la cover :
 .cover-meta span::before{content:'✦ ';color:#00dba3}
 ```
 
-**Section 1 — {your_score}** :
-- Gauge SVG/CSS circulaire avec le score (conic-gradient), coloré selon seuils
-- Titre `{what_it_means}` + paragraphe explicatif (langage non technique : ce que signifie ce score pour l'activité)
-- 2-3 alert-boxes (critical/warn/good) avec les findings les plus importants en langage business
+**Section 1 — {your_score}**:
+- Circular SVG/CSS gauge with the score (conic-gradient), coloured by thresholds
+- Title `{what_it_means}` + explanatory paragraph (non-technical language: what this score means for the business)
+- 2–3 alert-boxes (critical/warn/good) with the most important findings in business language
 
-CSS :
+CSS:
 ```
 .score-block{display:flex;gap:28px;align-items:center;flex-wrap:wrap;margin-bottom:24px}
 .gauge{width:130px;height:130px;border-radius:50%;
@@ -855,11 +855,11 @@ CSS :
 .alert-body p{font-size:12.5px;color:#555;line-height:1.55}
 ```
 
-**Section 2 — Les 6 dimensions (version client)** :
-- Grille 2×3 de dim-cards simplifiées : icône + nom localisé + statut (OK/Attention/Critique) + 1 phrase d'explication business, pas technique
-- Chaque card indique l'impact concret (ex : "23% de vos contacts sont injoignables")
+**Section 2 — The 6 dimensions (client version)**:
+- 2×3 grid of simplified dim-cards: icon + localised name + status (OK/Warning/Critical) + 1 sentence of business explanation, not technical
+- Each card shows the concrete impact (e.g. "23% of your contacts are unreachable")
 
-CSS :
+CSS:
 ```
 .dim-grid-client{display:grid;grid-template-columns:repeat(2,1fr);gap:14px;margin-bottom:20px}
 .dim-card{border-radius:10px;padding:20px;position:relative;overflow:hidden}
@@ -879,16 +879,16 @@ CSS :
 .dim-card.bad .dim-impact{color:#c0392b;background:#fde8e8}
 ```
 
-**Section 3 — Impact business** :
-Tableau d'impact avec colonnes : Problème | Volume estimé | Impact activité | Priorité
+**Section 3 — Business impact**:
+Impact table with columns: Issue | Estimated volume | Business impact | Priority
 
-**Section 4 — {recommendations}** :
-2-4 reco-cards (mêmes règles de sélection que le rapport audit) avec focus ROI client.
+**Section 4 — {recommendations}**:
+2–4 reco-cards (same selection rules as the audit report) with client ROI focus.
 
-**Section 5 — {next_steps}** :
-Liste numérotée de 3-5 étapes concrètes que le client peut faire maintenant.
+**Section 5 — {next_steps}**:
+Numbered list of 3–5 concrete steps the client can take right now.
 
-CSS :
+CSS:
 ```
 .steps{list-style:none;margin:0;padding:0}
 .step{display:flex;gap:16px;padding:14px 0;border-bottom:1px solid #f0f3f7;align-items:flex-start}
@@ -899,36 +899,36 @@ CSS :
 .step-content p{font-size:12.5px;color:#555;line-height:1.55}
 ```
 
-**Bloc CTA** :
+**CTA block**:
 ```html
 <div style="background:#1933AC;background-image:radial-gradient(ellipse at 70% 30%,#2a47d4 0%,#1933AC 70%);
   color:#fff;border-radius:14px;padding:36px 40px;text-align:center;margin-top:8px">
-  <h2 style="font-size:26px;font-weight:900;margin-bottom:10px">Améliorons votre qualité de données</h2>
+  <h2 style="font-size:26px;font-weight:900;margin-bottom:10px">Let's improve your data quality</h2>
   <p style="font-size:14px;opacity:.8;margin-bottom:24px;max-width:500px;margin-left:auto;margin-right:auto">
-    Nos experts DQE peuvent traiter ce fichier et vous livrer des données propres, enrichies et conformes.
+    Our DQE experts can process this file and deliver clean, enriched, and compliant data.
   </p>
   <a href="https://dqe.tech/contact" style="display:inline-block;background:#00dba3;color:#0f1f6e;
     font-size:14px;font-weight:800;padding:12px 32px;border-radius:8px;text-decoration:none">
-    Contacter DQE Software
+    Contact DQE Software
   </a>
 </div>
 ```
 
 ---
 
-## ÉTAPE 7 — Document 3 : Guide Chef de Projet (technique avancé)
+## STEP 7 — Document 3: Project Manager Guide (advanced technical)
 
-Génère `${PM_PATH}` via Write tool. Ce document est à usage interne DQE — technique, avec données d'exemples, plan de traitement.
+Generate `${PM_PATH}` via Write tool. This document is for internal DQE use — technical, with sample data, treatment plan.
 
-**Nav-bar** : lien actif sur "Guide Chef de Projet"
+**Nav-bar**: active link on "Project Manager Guide"
 
-**Cover** :
-- badges : `⚙️ {confidential_pm}` + si issues critiques : `⚠️ Contient des données sensibles`
+**Cover**:
+- badges: `⚙️ {confidential_pm}` + if critical issues: `⚠️ Contains sensitive data`
 - eyebrow = "{doc_pm}"
-- titre = "Analyse technique complète + {treatment_plan}"
-- KPI row : Score · Lignes · % injoignables · % doublons · Complétude · Temps analyse
+- title = "Complete technical analysis + {treatment_plan}"
+- KPI row: Score · Rows · % unreachable · % duplicates · Completeness · Analysis time
 
-CSS additionnel :
+Additional CSS:
 ```
 .cover-badges{display:flex;gap:10px;flex-wrap:wrap;margin-bottom:28px}
 .cover-badge{display:inline-flex;align-items:center;gap:8px;background:rgba(0,219,163,.2);
@@ -945,11 +945,11 @@ CSS additionnel :
 .cover-meta span::before{content:'✦ ';color:#00dba3}
 ```
 
-**Section 1 — {tech_context}** :
-- Sous-section 1.1 : Tableau paramètres détectés (Encodage / Délimiteur / Lignes / Colonnes / Colonnes vides) avec méthode de détection et recommandation
-- Sous-section 1.2 : Schéma complet des colonnes : pos. | colonne | type détecté | remplissage (fill bar) | valeurs top | statut
+**Section 1 — {tech_context}**:
+- Sub-section 1.1: Table of detected parameters (Encoding / Delimiter / Rows / Columns / Empty columns) with detection method and recommendation
+- Sub-section 1.2: Complete column schema: pos. | column | detected type | fill rate (fill bar) | top values | status
 
-CSS sous-sections :
+Sub-section CSS:
 ```
 .subsec{margin-bottom:36px}
 .subsec:last-child{margin-bottom:0}
@@ -961,13 +961,13 @@ CSS sous-sections :
 .num{text-align:right;font-variant-numeric:tabular-nums;font-family:monospace}
 ```
 
-**Section 2 — Analyse détaillée par dimension** :
-Pour chaque dimension avec issues :
-- metric boxes (alert/warn/good) + chiffres précis
-- Tableau avec exemples de valeurs problématiques (anonymisées si nécessaire)
-- Formule du score de qualité dans une `.formula-block`
+**Section 2 — Detailed analysis by dimension**:
+For each dimension with issues:
+- metric boxes (alert/warn/good) + precise figures
+- Table with examples of problematic values (anonymised if necessary)
+- Quality score formula in a `.formula-block`
 
-CSS :
+CSS:
 ```
 .formula-block{background:#0f1f6e;border-radius:10px;padding:20px 24px;color:#fff;margin:16px 0}
 .formula-title{font-size:11px;letter-spacing:2px;text-transform:uppercase;color:#00dba3;font-weight:700;margin-bottom:12px}
@@ -979,18 +979,18 @@ CSS :
 .formula-detail span{color:#00dba3}
 ```
 
-Formule DQE à afficher (valeurs réelles) :
+DQE formula to display (with actual values):
 ```
 Score = fill_rate(%) - min(dup_pct, 20) - min(rel_issues×3, 15)
      = {fill_rate}% - {min(dup_pct,20)} - {min(rel_issues×3,15)}
      = {quality_score}/100
 ```
 
-**Section 3 — {treatment_plan}** :
-Tableau priorité de traitement : priorité (🔴/🟡/🟢) | dimension | volume | service DQE recommandé | effort estimé | gain attendu
+**Section 3 — {treatment_plan}**:
+Treatment priority table: priority (🔴/🟡/🟢) | dimension | volume | recommended DQE service | estimated effort | expected gain
 
-**Section 4 — Configuration technique recommandée** :
-Grille de config-cards par service DQE pertinent :
+**Section 4 — Recommended technical configuration**:
+Grid of config-cards per relevant DQE service:
 ```
 .config-grid{display:grid;grid-template-columns:repeat(2,1fr);gap:14px;margin-top:12px}
 .config-card{border-radius:10px;border:1px solid #dce3f5;padding:18px;background:#f8f9fd}
@@ -1000,37 +1000,37 @@ Grille de config-cards par service DQE pertinent :
 .config-param{font-family:monospace;font-size:11px;background:#e8ecf8;padding:3px 7px;border-radius:3px;color:#1933AC;display:block;margin:3px 0}
 ```
 
-**Appendice — Détail complet des colonnes** :
-Tableau compact : colonne | contexte | top 5 valeurs | types (DIGIT/ALPHA/EMAIL…) | issues
+**Appendix — Complete column details**:
+Compact table: column | context | top 5 values | types (DIGIT/ALPHA/EMAIL…) | issues
 
 ---
 
-## ÉTAPE 8 — Sauvegarde et rapport final
+## STEP 8 — Save and final report
 
-Les 3 fichiers ont été sauvegardés via Write tool dans les étapes précédentes.
+The 3 files have been saved via Write tool in the previous steps.
 
-Nettoie les temporaires :
+Clean up temp files:
 ```bash
 rm -f /tmp/dqe_prog_${SID}.log /tmp/dqe_result_${SID}.json
 ```
 
-Affiche à l'utilisateur :
+Display to the user:
 
 ```
-✅ 3 rapports générés :
+✅ 3 reports generated:
 
-📊 Rapport d'audit  : {AUDIT_PATH}
-👤 Guide client     : {CLIENT_PATH}
-⚙️  Guide PM         : {PM_PATH}
+📊 Audit report   : {AUDIT_PATH}
+👤 Client guide   : {CLIENT_PATH}
+⚙️  PM guide       : {PM_PATH}
 
-📊 Score qualité : {quality_score}/100  ({qualification})
-📋 {total_rows:,} lignes · {total_columns} colonnes · {elapsed_seconds}s
+📊 Quality score  : {quality_score}/100  ({qualification})
+📋 {total_rows:,} rows · {total_columns} columns · {elapsed_seconds}s
 
-Points clés :
-• [finding critique #1 avec chiffres]
+Key findings:
+• [critical finding #1 with figures]
 • [finding #2]
 • [finding #3]
 
-Ouvrir (Linux)  : xdg-open "{AUDIT_PATH}"
-Ouvrir (Windows): explorer.exe "{WINDOWS_PATH}"
+Open (Linux)   : xdg-open "{AUDIT_PATH}"
+Open (Windows) : explorer.exe "{WINDOWS_PATH}"
 ```
