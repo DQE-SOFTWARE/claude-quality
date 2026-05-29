@@ -55,20 +55,28 @@ Analyse CSV files across the 6 DQE quality dimensions and generate standalone br
 
 ## Installation
 
-### From the Claude Code marketplace
+### Plugin install (recommended)
 
-```bash
-/plugins install dqe-quality
+```
+/plugin install dqe-quality
 ```
 
 > The plugin is registered as **`dqe-quality`** in the marketplace. The underlying GitHub repository is `DQE-SOFTWARE/claude-quality`.
 
-### Manual (git clone)
+### Manual install (Unix / macOS / Linux)
 
 ```bash
-git clone https://github.com/DQE-SOFTWARE/claude-quality.git
-cd claude-quality
+git clone --depth 1 https://github.com/DQE-SOFTWARE/claude-quality.git
+bash claude-quality/install.sh
+```
+
+Or via curl (review before executing):
+
+```bash
+curl -fsSL https://raw.githubusercontent.com/DQE-SOFTWARE/claude-quality/main/install.sh > install.sh
+cat install.sh
 bash install.sh
+rm install.sh
 ```
 
 ### Requirements
