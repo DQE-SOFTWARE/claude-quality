@@ -10,6 +10,7 @@
 
 set -e
 
+VERSION="2.2.0"
 REPO="DQE-SOFTWARE/claude-quality"
 BRANCH="main"
 ZIP_URL="https://github.com/$REPO/archive/refs/heads/$BRANCH.zip"
@@ -18,7 +19,7 @@ TMP_DIR="/tmp/dqe-quality-install-$$"
 TARGET="$HOME/.claude/skills/dqe-audit"
 
 echo ""
-echo "=== DQE Audit Skill — Desktop Install (macOS) ==="
+echo "=== DQE Audit Skill v$VERSION — Desktop Install (macOS) ==="
 echo ""
 
 # Check curl

@@ -9,6 +9,7 @@
 
 $ErrorActionPreference = "Stop"
 
+$version = "2.2.0"
 $repo    = "DQE-SOFTWARE/claude-quality"
 $branch  = "main"
 $zipUrl  = "https://github.com/$repo/archive/refs/heads/$branch.zip"
@@ -17,7 +18,7 @@ $tmpDir  = Join-Path $env:TEMP "dqe-quality-install"
 $target  = Join-Path $env:USERPROFILE ".claude\skills\dqe-audit"
 
 Write-Host ""
-Write-Host "=== DQE Audit Skill — Desktop Install (Windows) ===" -ForegroundColor Cyan
+Write-Host "=== DQE Audit Skill v$version — Desktop Install (Windows) ===" -ForegroundColor Cyan
 Write-Host ""
 
 # Download ZIP
