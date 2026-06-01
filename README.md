@@ -4,13 +4,13 @@
 
 # dqe-quality: Data Quality Audit Plugin for Claude Code
 
-> **Growing suite of data quality tools for Claude Code by [DQE Software](https://github.com/DQE-SOFTWARE).** Currently includes 1 audit skill analysing 6 dimensions and generating 3 standalone HTML reports. More skills coming.
+> **Growing suite of data quality tools for Claude Code by [DQE Software](https://github.com/DQE-SOFTWARE).** Currently includes 1 audit skill analysing 6 dimensions and generating up to 2 standalone HTML reports. More skills coming.
 >
 > **Note:** the plugin is named `dqe-quality` in the marketplace. The GitHub repository is named `claude-quality`.
 
 [![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](LICENSE)
 [![Claude Code](https://img.shields.io/badge/Claude_Code-Plugin-blue)](https://claude.ai/code)
-[![Version](https://img.shields.io/badge/version-2.1.0-brightgreen)](https://github.com/DQE-SOFTWARE/claude-quality/releases)
+[![Version](https://img.shields.io/badge/version-2.2.0-brightgreen)](https://github.com/DQE-SOFTWARE/claude-quality/releases)
 [![Python](https://img.shields.io/badge/Python-stdlib_only-blue)](https://www.python.org/)
 [![No dependencies](https://img.shields.io/badge/dependencies-none-brightgreen)](#requirements)
 [![Zero-copy](https://img.shields.io/badge/data-zero--copy-blueviolet)](#who-this-is-for)
@@ -18,8 +18,8 @@
 Analyse CSV files across the 6 DQE quality dimensions and generate standalone branded HTML reports — directly from Claude Code. No pip installs, no API keys, no setup. **Your data never leaves your machine.**
 
 > **Why dqe-quality?**
-> - Drop a CSV, get 3 professional reports in under 10 seconds
-> - Audit report for engineers, client guide for stakeholders, PM guide for your team
+> - Drop a CSV, get a professional audit report in under 10 seconds
+> - Audit report includes Next Steps + CTA; add `--pm` for an internal project manager guide
 > - Multilingual output: English, French, German, Spanish — one flag away
 > - **Zero-copy** — your data never leaves your machine, everything runs locally
 
@@ -32,7 +32,7 @@ Analyse CSV files across the 6 DQE quality dimensions and generate standalone br
 - [Quick start](#quick-start)
 - [Skills](#skills)
 - [The 6 dimensions](#the-6-dimensions)
-- [The 3 reports](#the-3-reports)
+- [The reports](#the-reports)
 - [Options](#options)
 - [Output files](#output-files)
 - [Screenshots](#screenshots)
@@ -47,7 +47,7 @@ Analyse CSV files across the 6 DQE quality dimensions and generate standalone br
 
 ***Data engineers and analysts*** who need a fast, reproducible quality baseline on any CSV before loading it into a pipeline or CRM.
 
-***Project managers and consultants*** who need ready-to-share deliverables — a client-facing report and an internal treatment plan — without opening a BI tool.
+***Project managers and consultants*** who need ready-to-share deliverables — an audit report with actionable next steps and, optionally, an internal treatment plan — without opening a BI tool.
 
 ***DQE Software teams*** who audit client data files and need branded, multilingual reports that tie findings directly to DQE service recommendations.
 
@@ -134,22 +134,29 @@ rm install.sh
 
 # Windows path (auto-converted to WSL)
 /dqe-audit "C:\Users\demo\data\export.csv" --lang=de
+
+# Audit + internal PM guide
+/dqe-audit ~/data/clients.csv --pm
+
+# French audit + PM guide
+/dqe-audit ~/data/clients.csv --lang=fr --pm
 ```
 
-Three HTML files are written next to the source CSV within seconds.
+The audit report is written next to the source CSV within seconds. Add `--pm` to also generate the project manager guide.
 
 ---
 
 ## Skills
 
-### `/dqe-audit <path/to/file.csv> [--lang=fr|en|us|de|es]`
+### `/dqe-audit <path/to/file.csv> [--lang=fr|en|us|de|es] [--pm]`
 
-Runs a full data quality audit on a CSV file and generates 3 standalone HTML reports.
+Runs a full data quality audit on a CSV file and generates 1 or 2 standalone HTML reports.
 
 | Argument | Description |
 |---|---|
 | `path/to/file.csv` | Path to the CSV file — relative, absolute, or Windows format |
 | `--lang=XX` | Report language: `en` (default), `us` (alias for en), `fr`, `de`, `es` |
+| `--pm` | Also generate the internal Project Manager guide (off by default) |
 
 ---
 
@@ -208,38 +215,29 @@ The engine detects cases where the city name in the city column contradicts the 
 | 2 | **Invalid dates** | Format errors, future dates, impossible values, mixed formats |
 | 3 | **Duplicates** | Exact duplicates, near-duplicates (name+email, name+address) |
 | 4 | **Anomalies** | Statistical outliers, generic values (null, test, xxx…), digits in text fields |
-| 5 | **Broken relationships** | Postal code format per country (FR/DE/ES/US), ZIP/city mismatches, unreachable contacts (no email, no phone) |
+| 5 | **Broken relationships** | Postal code format per country (FR/DE/ES/US), ZIP/city mismatches, unreachable contacts (no email, no phone), email with missing identity |
 | 6 | **Format inconsistencies** | Mixed phone formats, inconsistent casing, type heterogeneity |
 
 ---
 
-## The 3 reports
+## The reports
 
-### 📊 Audit Report — technical
+### 📊 Audit Report — always generated
 
-Full technical analysis for data engineers and analysts.
+Full technical analysis for data engineers, analysts, and stakeholders.
 
 - Quality score (0–100) with colour-coded rating
 - Column profiling: detected type, fill rate, dominant value type
 - Executive summary with 6 dimension cards
-- Detailed per-dimension analysis with issue lists and counts
+- Detailed per-dimension analysis: complete anomaly table per column, all relationship checks (including unreachable contacts, email with missing identity), full format breakdown
 - DQE service recommendations based on findings
 - Conclusion
+- **Next Steps** — numbered action list generated from actual findings, with exact counts and business framing
+- **Contact DQE Software** CTA block
 
-### 👤 Client Guide — business
+### ⚙️ Project Manager Guide — generated with `--pm`
 
-Business-oriented report for the end client. No technical jargon.
-
-- Key metrics at a glance: score, unreachable contacts %, duplicate %
-- Score gauge with business impact explanation
-- 6 dimensions in plain language with concrete impact statements
-- Business impact table: problem / estimated volume / activity impact / priority
-- Next steps checklist
-- DQE contact CTA
-
-### ⚙️ Project Manager Guide — internal
-
-Advanced technical document for DQE teams.
+Advanced technical document for DQE internal teams. Only produced when `--pm` is passed.
 
 - Detected parameters: encoding, delimiter, row/column counts, analysis mode
 - Full column schema with top values and type distribution
@@ -265,32 +263,49 @@ Controls the language of all generated HTML reports. Default: `en`.
 | `de` | German | |
 | `es` | Spanish | |
 
+### `--pm` — Project Manager guide
+
+When passed, generates the internal Project Manager guide in addition to the audit report. The two files link to each other via a shared navigation bar.
+
+```bash
+# Audit only (default)
+/dqe-audit clients.csv
+
+# Audit + PM guide
+/dqe-audit clients.csv --pm
+```
+
 ---
 
 ## Output files
 
-Three HTML files are written next to the source CSV:
+By default, one HTML file is written next to the source CSV:
 
 ```
 <basename>_dqe_audit_YYYYMMDD_<lang>.html
-<basename>_dqe_client_guide_YYYYMMDD_<lang>.html
+```
+
+With `--pm`, a second file is also generated:
+
+```
+<basename>_dqe_audit_YYYYMMDD_<lang>.html
 <basename>_dqe_pm_guide_YYYYMMDD_<lang>.html
 ```
 
-The three reports link to each other via a shared navigation bar.
+The two reports link to each other via a shared navigation bar.
 
 **Collision guard:** if a file with the same name already exists, a numeric suffix is appended automatically:
 ```
-clients_dqe_audit_20260528_en (2).html
+clients_dqe_audit_20260601_en (2).html
 ```
 
 ---
 
 ## Screenshots
 
-| 📊 Audit Report | 👤 Client Guide | ⚙️ PM Guide |
-|---|---|---|
-| ![Audit Report](docs/screenshots/screenshot_audit_en.png) | ![Client Guide](docs/screenshots/screenshot_client_en.png) | ![PM Guide](docs/screenshots/screenshot_pm_en.png) |
+| 📊 Audit Report | ⚙️ PM Guide |
+|---|---|
+| ![Audit Report](docs/screenshots/screenshot_audit_en.png) | ![PM Guide](docs/screenshots/screenshot_pm_en.png) |
 
 ---
 

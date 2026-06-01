@@ -5,7 +5,7 @@ user-invokable: true
 argument-hint: "<path/to/file.csv> [--lang=fr|en|us|de|es] [--pm]"
 metadata:
   author: DQE Software
-  version: "2.1.0"
+  version: "2.2.0"
   category: data-quality
 ---
 
