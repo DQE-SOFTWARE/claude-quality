@@ -1,8 +1,8 @@
 ---
 name: dqe-audit
-description: "CSV data quality audit — analyses 6 DQE dimensions (completeness, invalid dates, duplicates, anomalies, broken relationships, formats) and generates 3 branded standalone HTML reports: audit report, client guide, project manager guide. Use when the user asks for an audit, quality analysis, DQE analysis, or provides a CSV file to analyse. Trigger with /dqe-audit <path/to/file.csv>"
+description: "CSV data quality audit — analyses 6 DQE dimensions (completeness, invalid dates, duplicates, anomalies, broken relationships, formats) and generates a branded standalone HTML audit report (with Next Steps + CTA), and optionally a project manager guide with --pm. Use when the user asks for an audit, quality analysis, DQE analysis, or provides a CSV file to analyse. Trigger with /dqe-audit <path/to/file.csv>"
 user-invokable: true
-argument-hint: "<path/to/file.csv> [--lang=fr|en|us|de|es]"
+argument-hint: "<path/to/file.csv> [--lang=fr|en|us|de|es] [--pm]"
 metadata:
   author: DQE Software
   version: "2.1.0"
@@ -11,7 +11,7 @@ metadata:
 
 # DQE CSV Audit — Agent Skill
 
-You are a data quality audit agent for DQE Software. When this skill is triggered, you analyse a CSV file across 6 DQE dimensions and generate **3 professional HTML reports**: a technical audit report, a client guide, and a project manager guide.
+You are a data quality audit agent for DQE Software. When this skill is triggered, you analyse a CSV file across 6 DQE dimensions and generate **1 or 2 professional HTML reports**: a technical audit report (always, includes Next Steps + CTA), and optionally a project manager guide (when `--pm` is passed).
 
 ---
 
@@ -22,11 +22,12 @@ The CSV file path is provided in `$ARGUMENTS`.
 Extract:
 1. The CSV path: any argument that does not start with `--`
 2. The language: `--lang=XX` parameter if present (fr, en, us, de, es). `us` is an alias for `en`. Default: `en`
+3. The PM flag: `--pm` if present. Set `WITH_PM=true`, otherwise `WITH_PM=false`.
 
 If no CSV file is found, reply:
 ```
 Please provide the path to your CSV file:
-  /dqe-audit /path/to/file.csv [--lang=fr|en|us|de|es]
+  /dqe-audit /path/to/file.csv [--lang=fr|en|us|de|es] [--pm]
 ```
 And stop.
 
@@ -37,10 +38,8 @@ Use these labels in all generated HTML based on the chosen language:
 | Key | fr | en | de | es |
 |-----|----|----|----|----|
 | doc_audit | Rapport d'Audit | Audit Report | Prüfbericht | Informe de Auditoría |
-| doc_client | Guide Client | Client Guide | Kundenleitfaden | Guía del Cliente |
 | doc_pm | Guide Chef de Projet | Project Manager Guide | PM-Leitfaden | Guía del Jefe de Proyecto |
 | nav_audit | 📊 Rapport d'Audit | 📊 Audit Report | 📊 Prüfbericht | 📊 Informe |
-| nav_client | 👤 Guide Client | 👤 Client Guide | 👤 Kundenleitfaden | 👤 Guía Cliente |
 | nav_pm | ⚙️ Guide Chef de Projet | ⚙️ PM Guide | ⚙️ PM-Leitfaden | ⚙️ Guía PM |
 | score_label | Score Qualité | Quality Score | Qualitätsscore | Puntuación |
 | records | enregistrements | records | Datensätze | registros |
@@ -54,11 +53,12 @@ Use these labels in all generated HTML based on the chosen language:
 | formats | Formats | Format Issues | Formatprobleme | Formatos |
 | recommendations | Recommandations | Recommendations | Empfehlungen | Recomendaciones |
 | conclusion | Conclusion | Conclusion | Fazit | Conclusión |
-| confidential_client | Confidentiel — Destiné au client | Confidential — For Client | Vertraulich — Für Kunden | Confidencial — Para el cliente |
 | confidential_pm | Usage interne DQE | DQE Internal Use | Interne DQE-Nutzung | Uso interno DQE |
-| your_score | Votre score de qualité | Your quality score | Ihr Qualitätsscore | Su puntuación de calidad |
-| what_it_means | Ce que signifie ce score pour votre activité | What this score means for your business | Was dieser Score für Ihr Unternehmen bedeutet | Lo que este puntaje significa para su negocio |
 | next_steps | Prochaines étapes | Next Steps | Nächste Schritte | Próximos pasos |
+| next_steps_sub | Ce qu'il faut faire maintenant | What to do now to improve your data quality | Was jetzt zu tun ist | Qué hacer ahora |
+| cta_title | Améliorons votre qualité de données | Let's improve your data quality | Verbessern wir Ihre Datenqualität | Mejoremos su calidad de datos |
+| cta_sub | Nos experts DQE peuvent traiter ce fichier et livrer des données propres, enrichies et conformes — avec un score cible supérieur à 80/100. | Our DQE experts can process this file and deliver clean, enriched, and compliant data — targeting a quality score above 80/100. | Unsere DQE-Experten können diese Datei verarbeiten und saubere, angereicherte und konforme Daten liefern — mit einem Ziel-Score über 80/100. | Nuestros expertos DQE pueden procesar este archivo y entregar datos limpios, enriquecidos y conformes — con un puntaje objetivo superior a 80/100. |
+| cta_btn | Contacter DQE Software | Contact DQE Software | DQE Software kontaktieren | Contactar DQE Software |
 | tech_context | Contexte technique | Technical Context | Technischer Kontext | Contexto técnico |
 | treatment_plan | Plan de traitement | Treatment Plan | Behandlungsplan | Plan de tratamiento |
 
@@ -594,14 +594,12 @@ compute_out() {
 }
 
 AUDIT_PATH=$(compute_out "dqe_audit")
-CLIENT_PATH=$(compute_out "dqe_client_guide")
-PM_PATH=$(compute_out "dqe_pm_guide")
+[ "$WITH_PM" = "true" ] && PM_PATH=$(compute_out "dqe_pm_guide") || PM_PATH=""
 echo "AUDIT=$AUDIT_PATH"
-echo "CLIENT=$CLIENT_PATH"
-echo "PM=$PM_PATH"
+[ -n "$PM_PATH" ] && echo "PM=$PM_PATH"
 ```
 
-The 3 files will link to each other via the nav-bar using these filenames (basename only, without path).
+The generated files will link to each other via the nav-bar using basenames only (without path). The PM guide link only appears in the nav-bar when `--pm` was used.
 
 ---
 
@@ -628,12 +626,13 @@ HTML Logo (with fallback):
 Score colouring:
   >= 80 → good (#00dba3) · 60-79 → warn (#FFB700) · < 60 → bad (#ff6b6b)
 
-Nav-bar (shared across all 3 files, active link = background #1933AC):
+Nav-bar (shared across generated files, active link = background #1933AC):
+- If `WITH_PM=false` (audit only): omit the nav-bar entirely.
+- If `WITH_PM=true` (audit + PM guide): render the nav-bar with 2 links:
   <div class="nav-bar">
     <span class="nav-label">Deliverables</span>
     <div class="nav-links">
-      <a href="{AUDIT_BASENAME}" class="nav-link {active|client}">📊 {nav_audit}</a>
-      <a href="{CLIENT_BASENAME}" class="nav-link {active|client}">👤 {nav_client}</a>
+      <a href="{AUDIT_BASENAME}" class="nav-link {active|pm}">📊 {nav_audit}</a>
       <a href="{PM_BASENAME}" class="nav-link {active|pm}">⚙️ {nav_pm}</a>
     </div>
   </div>
@@ -705,7 +704,7 @@ Generate `${AUDIT_PATH}` via Write tool. This document is the complete technical
 - KPIs: `{total_rows:,} {records}` · `{total_columns} {columns}` · `{encoding}` · `{analysed_in} {elapsed_seconds}s`
 - If sampled: ⚠️ banner `Analysis on sample 1/{sample_step}`
 
-**Nav-bar**: active link on "Audit Report", links to client_guide and pm_guide
+**Nav-bar**: omit if `WITH_PM=false`; if `WITH_PM=true`, render with active link on "Audit Report" and a link to pm_guide
 
 **Section 1 — Technical Analysis** (`{tech_context}`):
 Table: Encoding / Delimiter / Total rows / Columns / Empty columns / Duration / Mode (full or sample)
@@ -733,10 +732,11 @@ Additional CSS:
 Followed by a narrative paragraph of 3–4 sentences summarising the overall state.
 
 **Section 4 — Detailed analysis across 6 dimensions**:
-Sub-sections 4.1 to 4.6, each containing:
+Sub-sections 4.1 to 4.6. **CRITICAL: include EVERY detected issue from the JSON — do not omit minor ones.** Each sub-section contains:
 - metric boxes (alert/warn/good) for key figures
-- detailed table per column where applicable
-- list of issues with icon + title + detail
+- **4.4 Anomalies**: always render as a full table (Column | Issue | Count | Severity) covering ALL columns with issues — including values_too_long, values_too_short, single_char_values, placeholder_values, digits_in_text_field for every affected column (NOM, PRENOM, ADR1, CP, VILLE, EMAIL, FIXE, PORTABLE, etc.)
+- **4.5 Broken Relationships**: render ALL issues from `5_broken_relationships.issues` as `.iss` entries with their dimension prefix [A]/[B]/[C] — including low-volume items like `digits_in_firstname` (count: 2), `incomplete_address` (count: 1), and `email_incomplete_identity` (e.g. "6 emails with NOM or PRENOM missing"). Never truncate to only the top 3 issues.
+- **4.6 Format Inconsistencies**: render ALL columns with issues including VILLE mixed-case, CP leading-zero detail, FIXE variable digit counts, and ADR2 mixed types
 
 Additional CSS:
 ```
@@ -789,6 +789,40 @@ CSS:
 **Section 6 — Conclusion**:
 4–5 sentences: score + qualification / positive point / critical issue in figures / DQE Software call to action.
 
+**Section 7 — {next_steps}** (`{next_steps_sub}`):
+Numbered list of 3–5 concrete, prioritised action steps generated dynamically from the actual findings. Each step must reference real numbers from the analysis. Use this logic to select and order steps:
+1. If date issues found → "Fix the [column name] date export at source" — explain how (re-export with proper date format) and mention the volume impacted
+2. If postal_code_format_invalid or postal_code_city_mismatch → "Run DQE Address to correct postal codes" — cite the exact count of corrections available (e.g., "2,804 corrections available with minimal processing time")
+3. If near_duplicates > 0 → "Deduplicate before your next campaign" — cite the exact near-duplicate count; explain the risk (inflated unsubscribe rate, sender reputation damage)
+4. If unreachable_contact count > 0 → "Enrich to recover the {N} unreachable contacts" — cite the exact % and count; frame as "real business opportunity"
+5. Always add → "Set up ongoing data quality monitoring" — recommend DQE Monitoring to prevent future degradation
+
+CSS:
+```
+.steps{list-style:none;margin:0;padding:0}
+.step{display:flex;gap:16px;padding:16px 0;border-bottom:1px solid #f0f3f7;align-items:flex-start}
+.step:last-child{border-bottom:none}
+.step-num{width:34px;height:34px;border-radius:50%;background:#1933AC;color:#fff;
+  font-size:14px;font-weight:900;display:flex;align-items:center;justify-content:center;flex-shrink:0;margin-top:2px}
+.step-content h4{font-size:13.5px;font-weight:700;color:#1933AC;margin-bottom:4px}
+.step-content p{font-size:12.5px;color:#555;line-height:1.6}
+```
+
+**CTA block** (placed after the steps list, inside the section body):
+```html
+<div style="background:#1933AC;background-image:radial-gradient(ellipse at 70% 30%,#2a47d4 0%,#1933AC 70%);
+  color:#fff;border-radius:14px;padding:36px 40px;text-align:center;margin-top:28px">
+  <h2 style="font-size:26px;font-weight:900;margin-bottom:10px">{cta_title}</h2>
+  <p style="font-size:14px;opacity:.8;margin-bottom:24px;max-width:520px;margin-left:auto;margin-right:auto">
+    {cta_sub}
+  </p>
+  <a href="https://dqe.tech/contact" style="display:inline-block;background:#00dba3;color:#0f1f6e;
+    font-size:14px;font-weight:800;padding:12px 32px;border-radius:8px;text-decoration:none">
+    {cta_btn}
+  </a>
+</div>
+```
+
 **Footer**:
 ```html
 <div class="report-footer">
@@ -798,129 +832,13 @@ CSS:
 
 ---
 
-## STEP 6 — Document 2: Client Guide (business)
+## STEP 6 — Document 2: Project Manager Guide (advanced technical, optional)
 
-Generate `${CLIENT_PATH}` via Write tool. This document is for the end client — business language, not technical, focused on business impact.
-
-**Nav-bar**: active link on "Client Guide"
-
-**Cover**:
-- eyebrow = "{confidential_client}"
-- title = "{your_score}" (localised)
-- subtitle = `{filename} — {total_rows:,} {records} analysed`
-- 3 key-metrics (big numbers): Score/100 · % unreachable contacts (dim 5) · % duplicates (dim 3)
-- cover-meta: date · volume · analysis mode
-
-Additional CSS for the cover:
-```
-.cover-subtitle{font-size:18px;color:rgba(255,255,255,.7);margin-bottom:40px;font-weight:400}
-.cover-badge{display:inline-flex;align-items:center;gap:8px;background:rgba(0,219,163,.2);
-  border:1px solid rgba(0,219,163,.4);border-radius:20px;padding:6px 16px;font-size:12px;
-  color:#00dba3;font-weight:700;letter-spacing:.5px;margin-bottom:32px}
-.key-metrics{display:flex;gap:20px;flex-wrap:wrap}
-.km{background:rgba(255,255,255,.1);border:1px solid rgba(255,255,255,.15);
-  border-radius:12px;padding:18px 28px;min-width:140px;flex:1}
-.km-val{font-size:42px;font-weight:900;line-height:1}
-.km-val.bad{color:#ff6b6b}.km-val.warn{color:#FFB700}.km-val.good{color:#00dba3}
-.km-label{font-size:11px;opacity:.7;margin-top:6px;text-transform:uppercase;letter-spacing:.5px;line-height:1.4}
-.cover-meta{display:flex;gap:20px;flex-wrap:wrap;margin-top:20px;font-size:12px;color:rgba(255,255,255,.55)}
-.cover-meta span::before{content:'✦ ';color:#00dba3}
-```
-
-**Section 1 — {your_score}**:
-- Circular SVG/CSS gauge with the score (conic-gradient), coloured by thresholds
-- Title `{what_it_means}` + explanatory paragraph (non-technical language: what this score means for the business)
-- 2–3 alert-boxes (critical/warn/good) with the most important findings in business language
-
-CSS:
-```
-.score-block{display:flex;gap:28px;align-items:center;flex-wrap:wrap;margin-bottom:24px}
-.gauge{width:130px;height:130px;border-radius:50%;
-  background:conic-gradient({color} 0% {pct}%, #f0f3fc {pct}% 100%);
-  display:flex;align-items:center;justify-content:center;position:relative}
-.gauge::before{content:'';position:absolute;width:90px;height:90px;background:#fff;border-radius:50%}
-.gauge-inner{position:relative;text-align:center}
-.gauge-val{font-size:32px;font-weight:900;line-height:1}
-.gauge-max{font-size:12px;color:#aaa;font-weight:600}
-.score-text h3{font-size:16px;font-weight:800;color:#1933AC;margin-bottom:8px}
-.alert-box{border-radius:10px;padding:18px 22px;margin-bottom:16px;display:flex;gap:14px;align-items:flex-start}
-.alert-box.critical{background:#fde8e8;border-left:4px solid #E74C3C}
-.alert-box.warn{background:#fff3cd;border-left:4px solid #FFB700}
-.alert-box.good{background:#d4f5eb;border-left:4px solid #00B486}
-.alert-ico{font-size:20px;flex-shrink:0;margin-top:1px}
-.alert-body h4{font-size:13px;font-weight:700;margin-bottom:4px}
-.alert-body.critical h4{color:#c0392b}
-.alert-body.warn h4{color:#856404}
-.alert-body.good h4{color:#0a7a56}
-.alert-body p{font-size:12.5px;color:#555;line-height:1.55}
-```
-
-**Section 2 — The 6 dimensions (client version)**:
-- 2×3 grid of simplified dim-cards: icon + localised name + status (OK/Warning/Critical) + 1 sentence of business explanation, not technical
-- Each card shows the concrete impact (e.g. "23% of your contacts are unreachable")
-
-CSS:
-```
-.dim-grid-client{display:grid;grid-template-columns:repeat(2,1fr);gap:14px;margin-bottom:20px}
-.dim-card{border-radius:10px;padding:20px;position:relative;overflow:hidden}
-.dim-card.ok{background:#f0faf6;border-left:4px solid #00B486}
-.dim-card.warn{background:#fffbf0;border-left:4px solid #FFB700}
-.dim-card.bad{background:#fdf2f2;border-left:4px solid #E74C3C}
-.dim-icon{font-size:24px;margin-bottom:8px}
-.dim-name{font-size:11px;font-weight:700;text-transform:uppercase;letter-spacing:.8px;color:#7a7a8c;margin-bottom:4px}
-.dim-headline{font-size:22px;font-weight:900;margin-bottom:6px;line-height:1}
-.dim-card.ok .dim-headline{color:#0a7a56}
-.dim-card.warn .dim-headline{color:#856404}
-.dim-card.bad .dim-headline{color:#c0392b}
-.dim-explain{font-size:12.5px;color:#555;line-height:1.5}
-.dim-impact{margin-top:10px;font-size:11.5px;font-weight:600;display:inline-block;padding:3px 10px;border-radius:4px}
-.dim-card.ok .dim-impact{color:#0a7a56;background:#d4f5eb}
-.dim-card.warn .dim-impact{color:#856404;background:#fff3cd}
-.dim-card.bad .dim-impact{color:#c0392b;background:#fde8e8}
-```
-
-**Section 3 — Business impact**:
-Impact table with columns: Issue | Estimated volume | Business impact | Priority
-
-**Section 4 — {recommendations}**:
-2–4 reco-cards (same selection rules as the audit report) with client ROI focus.
-
-**Section 5 — {next_steps}**:
-Numbered list of 3–5 concrete steps the client can take right now.
-
-CSS:
-```
-.steps{list-style:none;margin:0;padding:0}
-.step{display:flex;gap:16px;padding:14px 0;border-bottom:1px solid #f0f3f7;align-items:flex-start}
-.step:last-child{border-bottom:none}
-.step-num{width:34px;height:34px;border-radius:50%;background:#1933AC;color:#fff;
-  font-size:14px;font-weight:900;display:flex;align-items:center;justify-content:center;flex-shrink:0}
-.step-content h4{font-size:13.5px;font-weight:700;color:#1933AC;margin-bottom:4px}
-.step-content p{font-size:12.5px;color:#555;line-height:1.55}
-```
-
-**CTA block**:
-```html
-<div style="background:#1933AC;background-image:radial-gradient(ellipse at 70% 30%,#2a47d4 0%,#1933AC 70%);
-  color:#fff;border-radius:14px;padding:36px 40px;text-align:center;margin-top:8px">
-  <h2 style="font-size:26px;font-weight:900;margin-bottom:10px">Let's improve your data quality</h2>
-  <p style="font-size:14px;opacity:.8;margin-bottom:24px;max-width:500px;margin-left:auto;margin-right:auto">
-    Our DQE experts can process this file and deliver clean, enriched, and compliant data.
-  </p>
-  <a href="https://dqe.tech/contact" style="display:inline-block;background:#00dba3;color:#0f1f6e;
-    font-size:14px;font-weight:800;padding:12px 32px;border-radius:8px;text-decoration:none">
-    Contact DQE Software
-  </a>
-</div>
-```
-
----
-
-## STEP 7 — Document 3: Project Manager Guide (advanced technical)
+**Only generate this document if `WITH_PM=true` (i.e., `--pm` was passed). If `WITH_PM=false`, skip this step entirely.**
 
 Generate `${PM_PATH}` via Write tool. This document is for internal DQE use — technical, with sample data, treatment plan.
 
-**Nav-bar**: active link on "Project Manager Guide"
+**Nav-bar**: active link on "Project Manager Guide" (2-link nav: Audit + PM)
 
 **Cover**:
 - badges: `⚙️ {confidential_pm}` + if critical issues: `⚠️ Contains sensitive data`
@@ -1005,22 +923,42 @@ Compact table: column | context | top 5 values | types (DIGIT/ALPHA/EMAIL…) | 
 
 ---
 
-## STEP 8 — Save and final report
+## STEP 7 — Save and final report
 
-The 3 files have been saved via Write tool in the previous steps.
+The files have been saved via Write tool in the previous steps.
 
 Clean up temp files:
 ```bash
 rm -f /tmp/dqe_prog_${SID}.log /tmp/dqe_result_${SID}.json
 ```
 
-Display to the user:
+Display to the user (adapt based on whether `--pm` was used):
 
+Without `--pm`:
 ```
-✅ 3 reports generated:
+✅ Audit report generated:
 
 📊 Audit report   : {AUDIT_PATH}
-👤 Client guide   : {CLIENT_PATH}
+
+📊 Quality score  : {quality_score}/100  ({qualification})
+📋 {total_rows:,} rows · {total_columns} columns · {elapsed_seconds}s
+
+Key findings:
+• [critical finding #1 with figures]
+• [finding #2]
+• [finding #3]
+
+Open (Linux)   : xdg-open "{AUDIT_PATH}"
+Open (Windows) : explorer.exe "{WINDOWS_PATH}"
+
+Tip: add --pm to also generate the Project Manager guide.
+```
+
+With `--pm`:
+```
+✅ 2 reports generated:
+
+📊 Audit report   : {AUDIT_PATH}
 ⚙️  PM guide       : {PM_PATH}
 
 📊 Quality score  : {quality_score}/100  ({qualification})
