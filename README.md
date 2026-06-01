@@ -55,7 +55,7 @@ Analyse CSV files across the 6 DQE quality dimensions and generate standalone br
 
 ## Installation
 
-### Plugin install (recommended)
+### Plugin install (recommended — CLI users)
 
 ```
 /plugin install dqe-quality
@@ -63,7 +63,39 @@ Analyse CSV files across the 6 DQE quality dimensions and generate standalone br
 
 > The plugin is registered as **`dqe-quality`** in the marketplace. The underlying GitHub repository is `DQE-SOFTWARE/claude-quality`.
 
-### Manual install (Unix / macOS / Linux)
+---
+
+### Desktop app install — Windows (no git required)
+
+For users with the **Claude.ai desktop app** on Windows who don't have git installed.
+
+Open **PowerShell** and run:
+
+```powershell
+irm https://raw.githubusercontent.com/DQE-SOFTWARE/claude-quality/main/install-desktop.ps1 | iex
+```
+
+This downloads the skill ZIP from GitHub, extracts it, and copies it to `%USERPROFILE%\.claude\skills\dqe-audit\`. Restart Claude Code desktop when done.
+
+> **Execution policy error?** Run `Set-ExecutionPolicy -Scope CurrentUser RemoteSigned` first, then retry.
+
+---
+
+### Desktop app install — macOS (no git required)
+
+For users with the **Claude.ai desktop app** on macOS who don't have git installed.
+
+Open **Terminal** and run:
+
+```bash
+curl -fsSL https://raw.githubusercontent.com/DQE-SOFTWARE/claude-quality/main/install-desktop.sh | bash
+```
+
+This downloads the skill ZIP from GitHub, extracts it, and copies it to `~/.claude/skills/dqe-audit/`. Restart Claude Code desktop when done.
+
+---
+
+### Manual install (CLI / Linux / git users)
 
 ```bash
 git clone --depth 1 https://github.com/DQE-SOFTWARE/claude-quality.git
@@ -79,9 +111,11 @@ bash install.sh
 rm install.sh
 ```
 
+---
+
 ### Requirements
 
-- [Claude Code](https://claude.ai/code) CLI or IDE extension
+- [Claude Code](https://claude.ai/code) — CLI, desktop app, or IDE extension
 - Python 3.x — standard library only, **no `pip install` needed**
 
 ---
