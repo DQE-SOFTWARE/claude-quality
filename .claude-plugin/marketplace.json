@@ -5,13 +5,13 @@
     "name": "DQE-SOFTWARE"
   },
   "metadata": {
-    "description": "Claude Code plugins for data quality — CSV audits, DQE dimension analysis, and HTML reporting. Built by DQE Software."
+    "description": "Claude Code plugins for data quality — CSV audits, end-to-end campaign data quality (email/phone validation + deduplication), and DQE One Server process management via MCP. Built by DQE Software."
   },
   "plugins": [
     {
       "name": "dqe-quality",
       "source": "./",
-      "description": "Data quality audit plugin for Claude Code. Analyses CSV files across 6 DQE dimensions and generates a standalone branded HTML audit report (with Next Steps + CTA). Add --pm for an internal project manager guide.",
+      "description": "Data quality suite for Claude Code. Audit CSVs (6 DQE dimensions, HTML report), run end-to-end campaign workflows (email/phone validation + deduplication via DQE One Server MCP), and manage DQE processes from Claude Code.",
       "author": {
         "name": "DQE Software",
         "url": "https://github.com/DQE-SOFTWARE"
@@ -25,7 +25,13 @@
         "duplicates",
         "anomalies",
         "html-report",
-        "data-profiling"
+        "data-profiling",
+        "deduplication",
+        "email-validation",
+        "phone-validation",
+        "mcp",
+        "campaign",
+        "contact-quality"
       ]
     }
   ]
