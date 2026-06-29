@@ -1,8 +1,8 @@
 ---
 name: dqe-audit
-description: "Free CSV data quality audit — analyses 6 DQE dimensions (completeness, invalid dates, duplicates, anomalies, broken relationships, formats) and generates a branded standalone HTML audit report (with Next Steps + CTA), and optionally a project manager guide with --pm. Use when the user asks for an audit, quality analysis, DQE analysis, or provides a CSV file to analyse. Trigger with /dqe-audit <path/to/file.csv>"
+description: "Free CSV data quality audit — analyses 6 DQE dimensions (completeness, invalid dates, duplicates, anomalies, broken relationships, formats) and generates a branded standalone HTML audit report (with Next Steps + CTA), and optionally a project manager guide with --pm. Use when the user asks for an audit, quality analysis, DQE analysis, or provides a CSV file to analyse. Trigger with /dqe-audit path/to/file.csv"
 user-invokable: true
-argument-hint: "<path/to/file.csv> [--lang=fr|en|us|de|es] [--pm]"
+argument-hint: "path/to/file.csv [--lang=fr|en|us|de|es] [--pm]"
 metadata:
   author: DQE Software
   version: "2.2.0"
